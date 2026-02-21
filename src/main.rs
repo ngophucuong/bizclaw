@@ -363,7 +363,7 @@ async fn main() -> Result<()> {
                         Some(path) => {
                             println!("   Model: {}", path.display());
                             match bizclaw_brain::BrainEngine::load(&path) {
-                                Ok(engine) => {
+                                Ok(mut engine) => {
                                     if let Some(info) = engine.model_info() {
                                         println!("   Info: {info}");
                                     }

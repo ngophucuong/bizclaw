@@ -6,6 +6,7 @@
 pub mod gguf;
 pub mod mmap;
 pub mod model;
+pub mod forward;
 pub mod tensor;
 pub mod quant;
 pub mod simd;
@@ -58,6 +59,8 @@ struct LoadedModel {
     mmap_model: mmap::MmapModel,
     /// Model hyperparameters
     params: model::ModelParams,
+    /// Weight indices
+    weights: forward::TransformerWeights,
     /// BPE tokenizer
     tokenizer: tokenizer::BpeTokenizer,
     /// KV cache for generation
@@ -94,6 +97,15 @@ impl BrainEngine {
             params.dim, params.n_layers, params.n_heads, params.n_kv_heads, params.vocab_size
         );
 
+        // Build weight index
+        let weights = forward::TransformerWeights::from_gguf(&mmap_model, &params);
+        tracing::info!(
+            "Weights mapped: embd={}, output={}, layers={}",
+            weights.token_embd.is_some(),
+            weights.output.is_some(),
+            weights.layers.len()
+        );
+
         // Load tokenizer
         let tokenizer = tokenizer::BpeTokenizer::from_gguf(&mmap_model.gguf.metadata)
             .unwrap_or_else(|e| {
@@ -124,6 +136,7 @@ impl BrainEngine {
         self.model = Some(LoadedModel {
             mmap_model,
             params,
+            weights,
             tokenizer,
             kv_cache,
             sampler,
@@ -140,27 +153,24 @@ impl BrainEngine {
     }
 
     /// Generate text completion using the loaded model.
-    pub fn generate(&self, prompt: &str, max_tokens: u32) -> Result<String> {
-        let model = self.model.as_ref()
+    pub fn generate(&mut self, prompt: &str, max_tokens: u32) -> Result<String> {
+        let model = self.model.as_mut()
             .ok_or_else(|| BizClawError::Brain("Model not loaded".into()))?;
 
         // Tokenize prompt
         let mut input_tokens = vec![model.tokenizer.bos_id];
         input_tokens.extend(model.tokenizer.encode(prompt));
 
-        tracing::debug!("Generate: prompt_len={}, input_tokens={}", prompt.len(), input_tokens.len());
+        let total_len = input_tokens.len();
+        tracing::debug!("Generate: prompt_len={}, input_tokens={}", prompt.len(), total_len);
 
-        // Run forward pass for each token
         let mut output_tokens = Vec::new();
         let max_gen = max_tokens.min(self.config.max_tokens) as usize;
-        let dim = model.params.dim as usize;
-
-        // Buffers for forward pass
         let mut logits = vec![0.0f32; model.params.vocab_size as usize];
 
-        for step in 0..max_gen {
+        for step in 0..total_len + max_gen {
             // Get the token to process
-            let token = if step < input_tokens.len() {
+            let token = if step < total_len {
                 input_tokens[step]
             } else if let Some(&last) = output_tokens.last() {
                 last
@@ -168,11 +178,19 @@ impl BrainEngine {
                 break;
             };
 
-            // Forward pass (simplified — uses embedding lookup + matmul to get logits)
-            self.forward_token(model, token, step, &mut logits)?;
+            // Run forward pass
+            forward::forward(
+                &model.mmap_model,
+                &model.weights,
+                &model.params,
+                &mut model.kv_cache,
+                token,
+                step,
+                &mut logits,
+            )?;
 
             // Only sample after processing all input tokens
-            if step >= input_tokens.len() - 1 {
+            if step >= total_len - 1 {
                 let all_tokens: Vec<u32> = input_tokens.iter()
                     .chain(output_tokens.iter())
                     .copied()
@@ -190,43 +208,12 @@ impl BrainEngine {
 
         // Decode output tokens
         let output = model.tokenizer.decode(&output_tokens);
+        tracing::debug!("Generated {} tokens", output_tokens.len());
         Ok(output)
     }
 
-    /// Run a single token through the transformer forward pass.
-    fn forward_token(
-        &self,
-        model: &LoadedModel,
-        _token: u32,
-        _pos: usize,
-        logits: &mut [f32],
-    ) -> Result<()> {
-        let vocab_size = model.params.vocab_size as usize;
-
-        // TODO: Full forward pass implementation
-        // For now, generate random logits for testing
-        // The full implementation would:
-        // 1. Lookup token embedding
-        // 2. For each layer:
-        //    a. RMSNorm
-        //    b. Q/K/V projections
-        //    c. RoPE
-        //    d. Attention (with KV cache)
-        //    e. RMSNorm
-        //    f. FFN (gate_proj, up_proj, down_proj with SiLU)
-        // 3. Final RMSNorm
-        // 4. LM head projection → logits
-
-        // Placeholder: uniform logits (sampler will handle randomness)
-        for i in 0..vocab_size.min(logits.len()) {
-            logits[i] = 0.0;
-        }
-
-        Ok(())
-    }
-
     /// Generate with JSON grammar constraint.
-    pub fn generate_json(&self, prompt: &str) -> Result<serde_json::Value> {
+    pub fn generate_json(&mut self, prompt: &str) -> Result<serde_json::Value> {
         let text = self.generate(prompt, self.config.max_tokens)?;
         Ok(serde_json::json!({"response": text}))
     }

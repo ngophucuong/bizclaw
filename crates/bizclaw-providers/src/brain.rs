@@ -1,13 +1,12 @@
-//! Brain provider — local LLM inference via bizclaw-brain.
-
 use async_trait::async_trait;
 use bizclaw_core::config::BizClawConfig;
 use bizclaw_core::error::Result;
 use bizclaw_core::traits::provider::{GenerateParams, Provider};
 use bizclaw_core::types::{Message, ModelInfo, ProviderResponse, ToolDefinition};
+use tokio::sync::Mutex;
 
 pub struct BrainProvider {
-    engine: bizclaw_brain::BrainEngine,
+    engine: Mutex<bizclaw_brain::BrainEngine>,
 }
 
 impl BrainProvider {
@@ -44,7 +43,7 @@ impl BrainProvider {
             );
         }
 
-        Ok(Self { engine })
+        Ok(Self { engine: Mutex::new(engine) })
     }
 }
 
@@ -74,7 +73,7 @@ impl Provider for BrainProvider {
         _tools: &[ToolDefinition],
         params: &GenerateParams,
     ) -> Result<ProviderResponse> {
-        if !self.engine.is_loaded() {
+        if !self.engine.lock().await.is_loaded() {
             return Err(bizclaw_core::error::BizClawError::Brain(
                 "No model loaded. Place a .gguf file in ~/.bizclaw/models/ or set brain.model_path in config.".into()
             ));
@@ -89,14 +88,14 @@ impl Provider for BrainProvider {
             256
         };
 
-        let response = self.engine.generate(&prompt, max_tokens)?;
+        let response = self.engine.lock().await.generate(&prompt, max_tokens)?;
         Ok(ProviderResponse::text(response))
     }
 
     async fn list_models(&self) -> Result<Vec<ModelInfo>> {
         let mut models = vec![];
 
-        if let Some(info) = self.engine.model_info() {
+        if let Some(info) = self.engine.lock().await.model_info() {
             models.push(ModelInfo {
                 id: "local-model".into(),
                 name: info,
@@ -148,7 +147,7 @@ impl Provider for BrainProvider {
     }
 
     async fn health_check(&self) -> Result<bool> {
-        Ok(self.engine.is_loaded())
+        Ok(self.engine.lock().await.is_loaded())
     }
 }
 
