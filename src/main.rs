@@ -79,6 +79,17 @@ enum Commands {
 
     /// Show system info
     Info,
+
+    /// Quick interactive chat (alias for agent --interactive)
+    Chat {
+        /// Override provider
+        #[arg(short, long)]
+        provider: Option<String>,
+
+        /// Override model
+        #[arg(long)]
+        model: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -266,22 +277,109 @@ async fn main() -> Result<()> {
         Commands::Brain { action } => {
             match action {
                 BrainAction::Download { model } => {
-                    println!("🧠 Downloading model: {model}");
-                    println!("   (Model download not yet implemented — coming in Phase 2)");
-                    println!("   Manual: download GGUF file to ~/.bizclaw/models/");
+                    let model_dir = bizclaw_core::BizClawConfig::home_dir().join("models");
+                    std::fs::create_dir_all(&model_dir)?;
+
+                    let (url, filename) = match model.as_str() {
+                        "tinyllama-1.1b" | "tinyllama" => (
+                            "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+                            "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+                        ),
+                        "phi-2" => (
+                            "https://huggingface.co/TheBloke/phi-2-GGUF/resolve/main/phi-2.Q4_K_M.gguf",
+                            "phi-2.Q4_K_M.gguf",
+                        ),
+                        "llama-3.2-1b" | "llama3.2" => (
+                            "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+                            "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+                        ),
+                        other if other.starts_with("http") => (other, "custom-model.gguf"),
+                        _ => {
+                            println!("❌ Unknown model: {model}");
+                            println!("   Available: tinyllama-1.1b, phi-2, llama-3.2-1b");
+                            println!("   Or provide a direct URL to a .gguf file");
+                            return Ok(());
+                        }
+                    };
+
+                    let dest = model_dir.join(filename);
+                    if dest.exists() {
+                        println!("✅ Model already downloaded: {}", dest.display());
+                        return Ok(());
+                    }
+
+                    println!("🧠 Downloading: {filename}");
+                    println!("   From: {url}");
+                    println!("   To:   {}", dest.display());
+                    println!("\n   Use curl or wget to download:");
+                    println!("   curl -L -o \"{}\" \"{url}\"", dest.display());
                 }
                 BrainAction::List => {
-                    println!("🧠 Available models:");
-                    println!("  - tinyllama-1.1b (recommended, ~638MB)");
-                    println!("  - phi-2 (2.7B params)");
-                    println!("  - llama-3.2-1b (1B params)");
+                    println!("🧠 Brain Models\n");
+
+                    // List installed models
+                    let model_dir = bizclaw_core::BizClawConfig::home_dir().join("models");
+                    if model_dir.exists() {
+                        let mut found = false;
+                        if let Ok(entries) = std::fs::read_dir(&model_dir) {
+                            for entry in entries.flatten() {
+                                let path = entry.path();
+                                if path.extension().and_then(|e| e.to_str()) == Some("gguf") {
+                                    let size = std::fs::metadata(&path)
+                                        .map(|m| m.len() / 1024 / 1024)
+                                        .unwrap_or(0);
+                                    println!("  ✅ {} ({} MB)",
+                                        path.file_name().unwrap_or_default().to_string_lossy(), size);
+                                    found = true;
+                                }
+                            }
+                        }
+                        if !found {
+                            println!("  (no models installed)");
+                        }
+                    } else {
+                        println!("  (no models directory)");
+                    }
+
+                    println!("\n📦 Available for download:");
+                    println!("  - tinyllama-1.1b  (~638 MB, recommended for Pi)");
+                    println!("  - phi-2           (~1.6 GB)");
+                    println!("  - llama-3.2-1b    (~750 MB)");
+                    println!("\n  Use: bizclaw brain download <model-name>");
                 }
                 BrainAction::Test { prompt } => {
-                    println!("🧠 Testing brain inference...");
-                    let engine = bizclaw_brain::BrainEngine::new(bizclaw_brain::BrainConfig::default());
-                    match engine.generate(&prompt, 100) {
-                        Ok(response) => println!("Response: {response}"),
-                        Err(e) => println!("Error: {e}"),
+                    println!("🧠 Testing brain inference...\n");
+
+                    // Try to find and load a model
+                    let model_dir = bizclaw_core::BizClawConfig::home_dir().join("models");
+                    let model_path = std::fs::read_dir(&model_dir).ok()
+                        .and_then(|entries| {
+                            entries.filter_map(|e| e.ok())
+                                .find(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("gguf"))
+                                .map(|e| e.path())
+                        });
+
+                    match model_path {
+                        Some(path) => {
+                            println!("   Model: {}", path.display());
+                            match bizclaw_brain::BrainEngine::load(&path) {
+                                Ok(engine) => {
+                                    if let Some(info) = engine.model_info() {
+                                        println!("   Info: {info}");
+                                    }
+                                    println!("   Prompt: \"{prompt}\"\n");
+                                    match engine.generate(&prompt, 100) {
+                                        Ok(response) => println!("🤖 {response}"),
+                                        Err(e) => println!("❌ Inference error: {e}"),
+                                    }
+                                }
+                                Err(e) => println!("❌ Failed to load model: {e}"),
+                            }
+                        }
+                        None => {
+                            println!("❌ No model found in {}", model_dir.display());
+                            println!("   Run: bizclaw brain download tinyllama-1.1b");
+                        }
                     }
                 }
             }
@@ -315,6 +413,65 @@ async fn main() -> Result<()> {
             if let Some(zalo) = &config.channel.zalo {
                 println!("   Zalo: {} ({})", if zalo.enabled { "enabled" } else { "disabled" }, zalo.mode);
             }
+        }
+
+        Commands::Chat { provider, model } => {
+            // Apply overrides
+            if let Some(p) = provider {
+                config.default_provider = p;
+            }
+            if let Some(m) = model {
+                config.default_model = m;
+            }
+
+            let mut agent = bizclaw_agent::Agent::new(config)?;
+
+            println!("🦀 BizClaw v{} — Chat Mode", env!("CARGO_PKG_VERSION"));
+            println!("   Provider: {}", agent.provider_name());
+            println!("   Type /quit to exit, /clear to reset conversation\n");
+
+            let mut cli_channel = bizclaw_channels::cli::CliChannel::new();
+            cli_channel.connect().await?;
+
+            use bizclaw_core::traits::Channel;
+            use tokio_stream::StreamExt;
+
+            let mut stream = cli_channel.listen().await?;
+            print!("You: ");
+            use std::io::Write;
+            std::io::stdout().flush()?;
+
+            while let Some(incoming) = stream.next().await {
+                if incoming.content == "/clear" {
+                    agent.clear_conversation();
+                    println!("🔄 Conversation cleared.\n");
+                    print!("You: ");
+                    std::io::stdout().flush()?;
+                    continue;
+                }
+
+                if incoming.content == "/info" {
+                    let conv = agent.conversation();
+                    println!("\n📊 Provider: {} | Messages: {} | System prompt: ✅\n",
+                        agent.provider_name(), conv.len());
+                    print!("You: ");
+                    std::io::stdout().flush()?;
+                    continue;
+                }
+
+                match agent.handle_incoming(&incoming).await {
+                    Ok(response) => {
+                        cli_channel.send(response).await?;
+                    }
+                    Err(e) => {
+                        println!("\n❌ Error: {e}\n");
+                    }
+                }
+                print!("You: ");
+                std::io::stdout().flush()?;
+            }
+
+            println!("\n👋 Goodbye!");
         }
     }
 
