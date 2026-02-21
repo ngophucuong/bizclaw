@@ -14,6 +14,14 @@ BizClaw là nền tảng AI Agent kiến trúc trait-driven, có thể chạy **
 
 ## �🇳 Tiếng Việt
 
+### 🚀 100% Tự Host - Không phụ thuộc Cloud
+
+Dự án này được thiết kế theo chuẩn **Local-First & Self-Hosted**. Anh em không cần phải đăng ký tài khoản qua nền tảng trung gian, không có bất kỳ telemetry hay tracker nào gửi về server quản lý. Code clone về là của anh em!
+
+- **100% Độc lập:** Tự do build và chạy thẳng trên Laptop cá nhân, VPS, hay một con Raspberry Pi nhét túi quần. Không bị khoá token hay giới hạn chức năng từ bất kỳ server "mẹ" nào.
+- **Dữ liệu hoàn toàn nội bộ:** Lịch sử chat (Zalo, Telegram) và các API Keys bí mật của anh em đều được mã hoá AES-256 lưu nội bộ trong ổ cứng.
+- **Offline AI (Brain Engine):** Server rớt mạng Internet? Không thành vấn đề. BizClaw có thể kéo các model mã nguồn mở trực tiếp về thiết bị (Llama, DeepSeek) và chạy hoàn toàn Offline (tối ưu cực tốt cho máy chỉ có 512MB RAM).
+
 ### 🎯 Tính năng chính
 
 - **🧠 Brain Engine** — LLaMA inference: GGUF, mmap, quantization, **Flash Attention**, **FP16 KV Cache** (50% memory↓), **KV Cache Persistence**, **Grammar-Constrained JSON**, **Pre-computed RoPE**

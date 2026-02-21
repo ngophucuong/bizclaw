@@ -337,19 +337,36 @@ footer a{color:var(--accent2);text-decoration:none}
     </div>
 
     <!-- Install Box -->
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;text-align:center;margin-top:32px" class="fade-up">
-      <div style="font-size:48px;margin-bottom:12px">📦</div>
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px" data-vi="Cài đặt miễn phí từ GitHub" data-en="Install free from GitHub">Cài đặt miễn phí từ GitHub</h3>
-      <p style="color:var(--muted);font-size:14px;margin-bottom:20px" data-vi="Mã nguồn mở toàn bộ — License MIT — Tự do sử dụng, chỉnh sửa, phân phối." data-en="Fully open source — MIT License — Free to use, modify, distribute.">Mã nguồn mở toàn bộ — License MIT — Tự do sử dụng, chỉnh sửa, phân phối.</p>
-      <div style="background:#0d1117;border-radius:12px;padding:16px 20px;font-family:'Space Grotesk',monospace;font-size:15px;color:#58a6ff;text-align:left;position:relative;margin-bottom:20px;overflow-x:auto">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;text-align:center;margin-top:32px;position:relative;overflow:hidden" class="fade-up">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:var(--grad1)"></div>
+      <div style="font-size:48px;margin-bottom:12px">🚀</div>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:800;margin-bottom:12px;color:#fff" data-vi="100% Tự Host - Không phụ thuộc Cloud" data-en="100% Self-Hosted - Cloud Independent">100% Tự Host - Không phụ thuộc Cloud</h3>
+      <p style="color:var(--muted);font-size:15px;margin-bottom:24px;max-width:700px;margin-inline:auto;line-height:1.6" data-vi="Tuyệt đối KHÔNG cần tạo tài khoản trên server trung gian. KHÔNG tự động upload dữ liệu lên cloud bên thứ ba. Anh em clone code về, build và chạy thẳng trên máy cá nhân, VPS hoặc Raspberry Pi. Mã nguồn mở, Local-First, quyền kiểm soát toàn diện nằm trong tay anh em!" data-en="Absolutely NO need to create an account on third-party servers. NO automatic cloud data uploads. Clone the code, build, and run directly on your PC, VPS, or Raspberry Pi. Open source, Local-First, total control is in your hands!">Tuyệt đối KHÔNG cần tạo tài khoản trên server trung gian. KHÔNG tự động upload dữ liệu lên cloud bên thứ ba. Anh em clone code về, build và chạy thẳng trên máy cá nhân, VPS hoặc Raspberry Pi. Mã nguồn mở, Local-First, quyền kiểm soát toàn diện nằm trong tay anh em!</p>
+      
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:24px;text-align:left">
+        <div style="background:var(--surface);padding:16px;border-radius:12px;border:1px solid rgba(52,211,153,.2)">
+          <div style="color:var(--green);font-weight:700;margin-bottom:4px;font-size:14px">🔒 Local & Bảo Mật</div>
+          <div style="font-size:13px;color:var(--muted)">Dữ liệu chat, API Keys lưu mã hoá cục bộ trên ổ cứng của riêng anh em.</div>
+        </div>
+        <div style="background:var(--surface);padding:16px;border-radius:12px;border:1px solid rgba(34,211,238,.2)">
+          <div style="color:var(--cyan);font-weight:700;margin-bottom:4px;font-size:14px">🌐 Chạy Độc Lập</div>
+          <div style="font-size:13px;color:var(--muted)">Không token trung gian, không bị khóa quyền chức năng từ server mẹ.</div>
+        </div>
+        <div style="background:var(--surface);padding:16px;border-radius:12px;border:1px solid rgba(251,146,60,.2)">
+          <div style="color:var(--orange);font-weight:700;margin-bottom:4px;font-size:14px">🧠 Offline Mode</div>
+          <div style="font-size:13px;color:var(--muted)">Hỗ trợ Brain Engine kéo mô hình AI nhỏ để chạy hoàn toàn Offline.</div>
+        </div>
+      </div>
+
+      <div style="background:#0d1117;border-radius:12px;padding:16px 20px;font-family:'Space Grotesk',monospace;font-size:15px;color:#58a6ff;text-align:left;position:relative;margin-bottom:20px;overflow-x:auto;border:1px solid rgba(255,255,255,.05)">
         <span style="color:#8b949e">$</span> git clone https://github.com/nguyenduchoai/bizclaw.git<br>
         <span style="color:#8b949e">$</span> cd bizclaw<br>
         <span style="color:#8b949e">$</span> cargo build --release<br>
         <span style="color:#8b949e">$</span> ./target/release/bizclaw
       </div>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="btn-primary" data-vi="⭐ GitHub Repository" data-en="⭐ GitHub Repository">⭐ GitHub Repository</a>
-        <a href="/docs.html" class="btn-secondary" data-vi="📖 Hướng dẫn cài đặt" data-en="📖 Installation Guide">📖 Hướng dẫn cài đặt</a>
+        <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="btn-primary" data-vi="⭐ Lấy Source (GitHub)" data-en="⭐ Get Source (GitHub)">⭐ Lấy Source (GitHub)</a>
+        <a href="/docs.html" class="btn-secondary" data-vi="📖 Hướng dẫn Build" data-en="📖 Build Guide">📖 Hướng dẫn Build</a>
       </div>
       <p style="color:var(--muted);font-size:12px;margin-top:16px" data-vi="💻 Chạy trên Linux, macOS, Windows, Raspberry Pi — Bất kỳ thiết bị nào có 512MB RAM." data-en="💻 Runs on Linux, macOS, Windows, Raspberry Pi — any device with 512MB RAM.">💻 Chạy trên Linux, macOS, Windows, Raspberry Pi — Bất kỳ thiết bị nào có 512MB RAM.</p>
     </div>
