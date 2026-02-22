@@ -116,6 +116,40 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <h1>🏢 Tenants <button class="btn btn-outline" onclick="showPage('ollama')" style="margin-left:8px;font-size:12px">🧠 Models (Shared)</button> <button class="btn btn-primary" onclick="showCreateModal()" style="margin-left:auto">+ New Tenant</button></h1>
     <div id="tenants-list"></div>
   </div>
+  <!-- Tenant Detail -->
+  <div id="page-tenant-detail" class="hidden">
+    <h1 style="margin-bottom:4px"><a href="#" onclick="showPage('tenants')" style="color:var(--muted);text-decoration:none">🏢 Tenants</a> / <span id="detail-tenant-name">—</span></h1>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button class="btn btn-primary btn-sm detail-tab active" onclick="showDetailTab('overview',this)">📋 Overview</button>
+      <button class="btn btn-outline btn-sm detail-tab" onclick="showDetailTab('channels',this)">⚙️ Channels</button>
+      <button class="btn btn-outline btn-sm detail-tab" onclick="showDetailTab('model',this)">🧠 Model</button>
+    </div>
+    <!-- Overview Tab -->
+    <div id="detail-tab-overview">
+      <div class="stats" id="detail-stats"></div>
+      <div class="card" id="detail-info" style="margin-bottom:15px"></div>
+    </div>
+    <!-- Channels Tab -->
+    <div id="detail-tab-channels" class="hidden">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:15px">Cấu hình kênh giao tiếp cho Agent. Bật/tắt và nhập thông tin xác thực cho từng kênh.</p>
+      <div class="ch-grid" id="detail-ch-grid"></div>
+    </div>
+    <!-- Model Tab -->
+    <div id="detail-tab-model" class="hidden">
+      <div class="card" style="margin-bottom:15px">
+        <h3 style="margin-bottom:12px">🧠 Model Configuration</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:15px">Ollama models are shared across all tenants. Each tenant selects which model to use.<br>If Ollama is not installed on the server, use cloud providers (OpenAI, Anthropic, etc.) instead.</p>
+        <div id="detail-model-info"></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:12px">📦 Available Models (Shared Ollama)</h3>
+        <div id="detail-models-list"></div>
+        <div style="margin-top:12px;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border)">
+          <p style="font-size:12px;color:var(--muted)">💡 Mỗi tenant dùng chung Ollama server — chỉ cần pull model 1 lần, tất cả tenant đều dùng được. RAM đủ nếu chỉ run 1 model cùng lúc (~2-4GB cho 7B model).</p>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- Users -->
   <div id="page-users" class="hidden">
     <h1>👥 Users</h1>
@@ -272,6 +306,7 @@ function showPage(p){
 function loadPage(){
   if(currentPage==='dashboard')loadDashboard();
   else if(currentPage==='tenants')loadTenants();
+  else if(currentPage==='tenant-detail') {} // already loaded by openTenantDetail
   else if(currentPage==='users')loadUsers();
   else if(currentPage==='audit')loadAudit();
   else if(currentPage==='ollama')loadOllama();
@@ -317,7 +352,7 @@ async function loadTenants(){
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" onclick="openTenantDetail('${t.id}','${t.name}')" title="Detail & Channels">⚙️ Detail</button>
+          <button class="btn btn-primary btn-sm" onclick="openTenantDetail('${t.id}','${esc(t.name)}','${esc(t.slug)}','${esc(t.provider)}','${esc(t.model)}','${t.status}','${esc(t.plan)}','${esc(t.pairing_code||'')}','${t.port||''}')" title="Tenant Detail">⚙️ Detail</button>
           ${t.status!=='running'
             ?`<button class="btn btn-primary btn-sm" onclick="tenantAction('${t.id}','start')">▶ Start</button>`
             :`<button class="btn btn-outline btn-sm" onclick="tenantAction('${t.id}','stop')">⏹ Stop</button>`}
@@ -329,6 +364,8 @@ async function loadTenants(){
     </div>`;
   }).join('');
 }
+function esc(s){return (s||"").replace(/'/g,"\\'");}
+
 
 // ── Users & Audit ──────────────────────────────────
 async function loadUsers(){const d=await(await authFetch(API+'/users')).json();document.getElementById('users-list').innerHTML=(d.users||[]).map(u=>`<div class="card" style="margin-bottom:8px"><strong>${u.email}</strong> · ${u.role} · ${u.created_at}</div>`).join('')||'<p style="color:var(--muted)">No users yet</p>'}
@@ -357,9 +394,167 @@ async function tenantAction(id,action){
 }
 function logout(){localStorage.removeItem('bizclaw_admin_token');authToken='';showLogin();}
 
-// ── Tenant Detail (opens channels for now) ──────────
-function openTenantDetail(id, name) {
-  openChannels(id, name);
+// ── Tenant Detail Page ──────────────────────────────
+let detailTenantId = '';
+let detailTenantData = {};
+
+function openTenantDetail(id, name, slug, provider, model, status, plan, pairing, port) {
+  detailTenantId = id;
+  detailTenantData = {id, name, slug, provider, model, status, plan, pairing, port};
+  channelTenantId = id;
+  channelTenantName = name;
+
+  document.getElementById('detail-tenant-name').textContent = name;
+
+  // Stats
+  const baseDomain = location.hostname.replace(/^admin\./, '');
+  const proto = location.protocol;
+  document.getElementById('detail-stats').innerHTML =
+    `<div class="stat"><label>Status</label><div class="val ${status==='running'?'green':'red'}">${status}</div></div>`+
+    `<div class="stat"><label>Provider</label><div class="val">${provider}</div></div>`+
+    `<div class="stat"><label>Model</label><div class="val">${model}</div></div>`+
+    `<div class="stat"><label>Plan</label><div class="val">${plan}</div></div>`+
+    `<div class="stat"><label>Port</label><div class="val">${port||'—'}</div></div>`;
+
+  // Info card
+  document.getElementById('detail-info').innerHTML = `
+    <h3 style="margin-bottom:12px">📋 Tenant Info</h3>
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:14px">
+      <span style="color:var(--muted)">ID:</span><code style="font-size:12px">${id}</code>
+      <span style="color:var(--muted)">Slug:</span><span>${slug}</span>
+      <span style="color:var(--muted)">URL:</span><a href="${proto}//${slug}.${baseDomain}" target="_blank" style="color:var(--accent)">${slug}.${baseDomain}</a>
+      <span style="color:var(--muted)">Pairing:</span><strong style="color:var(--yellow)">${pairing||'N/A'}</strong>
+    </div>
+    <div style="margin-top:15px;display:flex;gap:8px">
+      ${status!=='running'
+        ?`<button class="btn btn-primary btn-sm" onclick="tenantAction('${id}','start');setTimeout(()=>showPage('tenants'),500)">▶ Start</button>`
+        :`<button class="btn btn-outline btn-sm" onclick="tenantAction('${id}','stop');setTimeout(()=>showPage('tenants'),500)">⏹ Stop</button>`}
+      <button class="btn btn-outline btn-sm" onclick="tenantAction('${id}','restart');toast('Restarting...')">🔄 Restart</button>
+      <button class="btn btn-outline btn-sm" onclick="resetTenantPairing('${id}')">🔑 Reset Pairing</button>
+    </div>
+  `;
+
+  // Show detail page
+  showPage('tenant-detail');
+  showDetailTab('overview', document.querySelector('.detail-tab'));
+
+  // Preload channels for channels tab
+  loadDetailChannels(id);
+  loadDetailModels();
+}
+
+function showDetailTab(tab, btn) {
+  ['overview','channels','model'].forEach(t => {
+    const el = document.getElementById('detail-tab-'+t);
+    if(el) el.classList.toggle('hidden', t!==tab);
+  });
+  document.querySelectorAll('.detail-tab').forEach(b => {
+    b.className = `btn btn-${b.textContent.toLowerCase().includes(tab.slice(0,3))?'primary':'outline'} btn-sm detail-tab`;
+  });
+  if(btn) {
+    document.querySelectorAll('.detail-tab').forEach(b => b.className = 'btn btn-outline btn-sm detail-tab');
+    btn.className = 'btn btn-primary btn-sm detail-tab active';
+  }
+}
+
+async function loadDetailChannels(tenantId) {
+  const res = await authFetch(`${API}/tenants/${tenantId}/channels`);
+  const data = await res.json();
+  const existing = {};
+  if(data.ok && data.channels){
+    data.channels.forEach(ch => {
+      try { existing[ch.channel_type] = { ...ch, config: JSON.parse(ch.config_json) }; }
+      catch { existing[ch.channel_type] = { ...ch, config: {} }; }
+    });
+  }
+  loadedChannels = existing;
+  renderDetailChannelCards();
+}
+
+function renderDetailChannelCards() {
+  const grid = document.getElementById('detail-ch-grid');
+  grid.innerHTML = CHANNEL_DEFS.map(def => {
+    const saved = loadedChannels[def.type];
+    const enabled = saved ? saved.enabled : false;
+    const status = saved ? saved.status : 'disconnected';
+    const config = saved ? saved.config : {};
+    return `<div class="ch-card" id="ch-${def.type}">
+      <div class="ch-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="ch-icon">${def.icon}</span>
+          <span class="ch-name">${def.name}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge ${status}" style="font-size:10px">${status}</span>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-${def.type}" ${enabled?'checked':''} onchange="toggleChannel('${def.type}',this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="ch-fields">
+        ${def.fields.map(f => {
+          const val = config[f.key] || '';
+          if(f.type==='textarea') return `<label style="font-size:11px;color:var(--muted);margin-top:6px">${f.label}</label>
+            <textarea id="ch-${def.type}-${f.key}" placeholder="${f.placeholder}">${val}</textarea>`;
+          if(f.type==='password') return `<label style="font-size:11px;color:var(--muted);margin-top:6px">${f.label}</label>
+            <input type="password" id="ch-${def.type}-${f.key}" placeholder="${f.placeholder}" value="${val}">`;
+          return `<label style="font-size:11px;color:var(--muted);margin-top:6px">${f.label}</label>
+            <input type="text" id="ch-${def.type}-${f.key}" placeholder="${f.placeholder}" value="${val}">`;
+        }).join('')}
+      </div>
+      <div class="ch-actions">
+        <button class="btn btn-primary btn-sm" onclick="saveChannel('${def.type}')">💾 Lưu</button>
+        ${def.hasQR ? `<button class="btn btn-green btn-sm" onclick="openZaloQR()">📱 Quét QR</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadDetailModels() {
+  const info = document.getElementById('detail-model-info');
+  const list = document.getElementById('detail-models-list');
+  const t = detailTenantData;
+  info.innerHTML = `
+    <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;font-size:14px">
+      <span style="color:var(--muted)">Current Provider:</span><strong>${t.provider}</strong>
+      <span style="color:var(--muted)">Current Model:</span><strong style="color:var(--accent)">${t.model}</strong>
+      <span style="color:var(--muted)">Ollama Host:</span><span style="font-size:12px">Shared — configured in platform env (OLLAMA_HOST)</span>
+    </div>
+  `;
+
+  // Fetch shared Ollama models
+  try {
+    const r = await(await authFetch(API+'/ollama/models')).json();
+    if(r.ok && r.models && r.models.length > 0) {
+      list.innerHTML = r.models.map(m => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid var(--border)">
+          <div>
+            <strong style="color:var(--accent)">${m.name}</strong>
+            <span style="color:var(--muted);font-size:12px;margin-left:8px">${m.size} · ${m.family||''} · ${m.parameter_size||''}</span>
+          </div>
+          <span style="font-size:12px;color:${t.model===m.name?'var(--green)':'var(--muted)'}">${t.model===m.name?'✅ Active':'Available'}</span>
+        </div>
+      `).join('');
+    } else {
+      list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted)">
+        <p>Ollama chưa được cài đặt hoặc chưa có model nào.</p>
+        <p style="font-size:12px;margin-top:6px">Cài đặt: <code>curl -fsSL https://ollama.ai/install.sh | sh</code></p>
+        <p style="font-size:12px;margin-top:4px">Pull model: <code>ollama pull tinyllama</code></p>
+        <p style="font-size:12px;margin-top:8px;color:var(--yellow)">💡 Hoặc dùng cloud provider (OpenAI, Anthropic, Gemini) thay cho Ollama</p>
+      </div>`;
+    }
+  } catch(e) {
+    list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--red)">❌ Cannot connect to Ollama</div>`;
+  }
+}
+
+async function resetTenantPairing(id) {
+  try {
+    const r = await(await authFetch(`${API}/tenants/${id}/pairing`, {method:'POST'})).json();
+    if(r.ok) { toast(`✅ New pairing code: ${r.pairing_code}`); }
+    else { toast(`❌ ${r.error}`, 'error'); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 // ══════════════════════════════════════════════════
