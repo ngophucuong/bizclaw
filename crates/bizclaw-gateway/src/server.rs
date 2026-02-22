@@ -99,7 +99,12 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(super::routes::health_check))
         .route("/api/v1/verify-pairing", post(verify_pairing));
 
-    protected.merge(public)
+    // SPA fallback — serve dashboard HTML for all frontend routes
+    // so that /dashboard, /chat, /settings etc. all work with path-based routing
+    let spa_fallback = Router::new()
+        .fallback(get(dashboard_page));
+
+    protected.merge(public).merge(spa_fallback)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(shared)

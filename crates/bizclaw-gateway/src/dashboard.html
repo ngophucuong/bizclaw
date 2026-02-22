@@ -144,16 +144,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <aside class="sidebar">
     <div class="logo"><span class="icon">⚡</span><span class="text">BizClaw</span></div>
     <nav class="nav">
-      <a onclick="showPage('dashboard')" class="active" id="nav-dashboard">📊 <span data-i18n="nav.dashboard">Bảng điều khiển</span></a>
-      <a onclick="showPage('chat')" id="nav-chat">💬 <span data-i18n="nav.webchat">Trò chuyện</span></a>
+      <a href="/dashboard" onclick="navigateTo(event,'dashboard')" class="active" id="nav-dashboard">📊 <span data-i18n="nav.dashboard">Bảng điều khiển</span></a>
+      <a href="/chat" onclick="navigateTo(event,'chat')" id="nav-chat">💬 <span data-i18n="nav.webchat">Trò chuyện</span></a>
       <div class="nav-sep"></div>
-      <a onclick="showPage('settings')" id="nav-settings">⚙️ <span data-i18n="nav.settings">Cài đặt</span></a>
-      <a onclick="showPage('providers')" id="nav-providers">🔌 <span data-i18n="nav.providers">Nhà cung cấp</span></a>
-      <a onclick="showPage('channels')" id="nav-channels">📱 <span data-i18n="nav.channels">Kênh liên lạc</span></a>
-      <a onclick="showPage('tools')" id="nav-tools">🛠️ <span data-i18n="nav.tools">Công cụ</span></a>
+      <a href="/settings" onclick="navigateTo(event,'settings')" id="nav-settings">⚙️ <span data-i18n="nav.settings">Cài đặt</span></a>
+      <a href="/providers" onclick="navigateTo(event,'providers')" id="nav-providers">🔌 <span data-i18n="nav.providers">Nhà cung cấp</span></a>
+      <a href="/channels" onclick="navigateTo(event,'channels')" id="nav-channels">📱 <span data-i18n="nav.channels">Kênh liên lạc</span></a>
+      <a href="/tools" onclick="navigateTo(event,'tools')" id="nav-tools">🛠️ <span data-i18n="nav.tools">Công cụ</span></a>
       <div class="nav-sep"></div>
-      <a onclick="showPage('brain')" id="nav-brain">🧠 <span data-i18n="nav.brain">Brain Engine</span></a>
-      <a onclick="showPage('configfile')" id="nav-configfile">📄 config.toml</a>
+      <a href="/brain" onclick="navigateTo(event,'brain')" id="nav-brain">🧠 <span data-i18n="nav.brain">Brain Engine</span></a>
+      <a href="/configfile" onclick="navigateTo(event,'configfile')" id="nav-configfile">📄 config.toml</a>
     </nav>
     <div class="sidebar-footer">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
@@ -340,11 +340,17 @@ async function checkPairing(){
   showPairingGate();
 }
 
-// ═══ NAVIGATION (Hash Router) ═══
+// ═══ NAVIGATION (Path Router — History API) ═══
+function navigateTo(event, name) {
+  if (event) event.preventDefault();
+  showPage(name, true);
+}
+
 function showPage(name, pushState) {
-  // Update URL hash
-  if (pushState !== false) {
-    location.hash = '#/' + name;
+  // Update URL path using History API
+  const targetPath = '/' + (name === 'dashboard' ? '' : name);
+  if (pushState !== false && location.pathname !== targetPath && !(name === 'dashboard' && location.pathname === '/')) {
+    history.pushState({ page: name }, '', targetPath);
   }
   document.querySelectorAll('[id^=page-]').forEach(p => p.style.display = 'none');
   document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
@@ -359,15 +365,24 @@ function showPage(name, pushState) {
 }
 
 // Handle browser back/forward
-window.addEventListener('hashchange', () => {
-  const hash = location.hash.replace('#/', '') || 'dashboard';
-  showPage(hash, false);
+window.addEventListener('popstate', (ev) => {
+  const name = getPageFromPath();
+  showPage(name, false);
 });
 
-// Route from current hash on load
-function routeFromHash() {
-  const hash = location.hash.replace('#/', '') || 'dashboard';
-  showPage(hash, false);
+// Get page name from current URL pathname
+function getPageFromPath() {
+  const path = location.pathname.replace(/^\//, '').replace(/\/$/, '');
+  // Map valid page names
+  const validPages = ['dashboard','chat','settings','providers','channels','tools','brain','configfile'];
+  if (!path || path === '' || !validPages.includes(path)) return 'dashboard';
+  return path;
+}
+
+// Route from current path on load
+function routeFromPath() {
+  const name = getPageFromPath();
+  showPage(name, false);
 }
 
 // ═══ DASHBOARD ═══
@@ -754,7 +769,7 @@ function setLang(lang){
 // ═══ INIT ═══
 async function initApp(){
   setLang(currentLang);
-  routeFromHash();
+  routeFromPath();
   await loadConfig();
   loadDashboard();
   loadProviders();
