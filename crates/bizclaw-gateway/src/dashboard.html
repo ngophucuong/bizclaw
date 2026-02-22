@@ -165,20 +165,63 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
   </aside>
   <main class="main">
-    <!-- ═══ DASHBOARD ═══ -->
+    <!-- ═══ DASHBOARD (LobsterBoard-inspired) ═══ -->
     <div id="page-dashboard">
       <div class="page-header"><div><h1 data-i18n="dash.title">Bảng điều khiển</h1><div class="sub" data-i18n="dash.subtitle">Trung tâm quản lý Agent Gateway</div></div></div>
-      <div class="stats">
-        <div class="card"><div class="card-label" data-i18n="dash.status">Trạng thái</div><div class="card-value green" id="s-status">● Online</div></div>
-        <div class="card"><div class="card-label" data-i18n="dash.version">Phiên bản</div><div class="card-value accent" id="s-version">—</div></div>
-        <div class="card"><div class="card-label" data-i18n="dash.provider">Nhà cung cấp</div><div class="card-value blue" id="s-provider">—</div></div>
-        <div class="card"><div class="card-label" data-i18n="dash.model">Mô hình AI</div><div class="card-value cyan" id="s-model">—</div></div>
-        <div class="card"><div class="card-label" data-i18n="dash.uptime">Thời gian hoạt động</div><div class="card-value" id="s-uptime">—</div></div>
-        <div class="card"><div class="card-label" data-i18n="dash.platform">Nền tảng</div><div class="card-value" id="s-platform" style="font-size:16px">—</div></div>
+      <!-- Widget Row 1: Quick Stats -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        <div class="card" style="text-align:center">
+          <div class="card-label">⏰ Clock</div>
+          <div class="card-value accent" id="w-clock" style="font-size:22px;font-family:var(--mono)">--:--</div>
+          <div class="card-sub" id="w-date">—</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div class="card-label" data-i18n="dash.uptime">Uptime</div>
+          <div class="card-value green" id="s-uptime" style="font-size:22px">—</div>
+          <div class="card-sub" data-i18n="dash.status">Online</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div class="card-label" data-i18n="dash.provider">Provider</div>
+          <div class="card-value blue" id="s-provider" style="font-size:18px">—</div>
+          <div class="card-sub" id="s-model" style="color:var(--cyan)">—</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div class="card-label" data-i18n="dash.version">Version</div>
+          <div class="card-value accent" id="s-version" style="font-size:18px">—</div>
+          <div class="card-sub" id="s-platform" style="font-size:10px">—</div>
+        </div>
       </div>
-      <div class="form-section">
-        <h2>📡 <span data-i18n="dash.channels">Kênh đang hoạt động</span></h2>
-        <div class="card"><table><thead><tr><th data-i18n="th.channel">Kênh</th><th data-i18n="th.type">Loại</th><th data-i18n="th.status">Trạng thái</th><th data-i18n="th.configured">Đã cấu hình</th></tr></thead><tbody id="dash-channels"></tbody></table></div>
+      <!-- Widget Row 2: System & Channels -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <!-- System Info Widget -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="card-label" style="margin:0">🖥️ System</div>
+            <span class="badge badge-green" id="s-status">● Online</span>
+          </div>
+          <div id="dash-system" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+            <div><span style="color:var(--text2)">OS:</span> <span id="sys-os">—</span></div>
+            <div><span style="color:var(--text2)">Arch:</span> <span id="sys-arch">—</span></div>
+            <div><span style="color:var(--text2)">SIMD:</span> <span id="brain-simd" style="color:var(--accent2)">—</span></div>
+            <div><span style="color:var(--text2)">Memory:</span> <span id="sys-mem">—</span></div>
+          </div>
+        </div>
+        <!-- Quick Actions Widget -->
+        <div class="card">
+          <div class="card-label" style="margin-bottom:10px">⚡ Quick Actions</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <button class="btn btn-outline btn-sm" onclick="navigateTo(null,'chat')">💬 Chat</button>
+            <button class="btn btn-outline btn-sm" onclick="navigateTo(null,'settings')">⚙️ Settings</button>
+            <button class="btn btn-outline btn-sm" onclick="navigateTo(null,'channels')">📱 Channels</button>
+            <button class="btn btn-outline btn-sm" onclick="navigateTo(null,'brain')">🧠 Brain</button>
+            <button class="btn btn-outline btn-sm" onclick="navigateTo(null,'configfile')">📄 Config</button>
+          </div>
+        </div>
+      </div>
+      <!-- Widget Row 3: Channel Table -->
+      <div class="card">
+        <div class="card-label" style="margin-bottom:10px">📡 <span data-i18n="dash.channels">Active Channels</span></div>
+        <table><thead><tr><th data-i18n="th.channel">Kênh</th><th data-i18n="th.type">Loại</th><th data-i18n="th.status">Trạng thái</th><th data-i18n="th.configured">Config</th></tr></thead><tbody id="dash-channels"></tbody></table>
       </div>
     </div>
 
@@ -204,9 +247,34 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="form-section">
         <h2>🤖 AI Provider</h2>
-        <div class="form-row"><span class="form-label">Provider</span><select id="set-provider"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="groq">Groq</option><option value="ollama">Ollama (local)</option><option value="llamacpp">llama.cpp</option><option value="brain">Brain Engine</option></select></div>
-        <div class="form-row"><span class="form-label">Model</span><input id="set-model" placeholder="gpt-4o-mini"></div>
-        <div class="form-row"><span class="form-label">API Key</span><input id="set-apikey" type="password" placeholder="sk-..."></div>
+        <div class="form-row"><span class="form-label">Provider</span><select id="set-provider" onchange="onProviderChange()">
+          <option value="openai">OpenAI</option><option value="anthropic">Anthropic</option>
+          <option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option>
+          <option value="groq">Groq</option><option value="ollama">Ollama (local)</option>
+          <option value="llamacpp">llama.cpp</option><option value="brain">Brain Engine (offline)</option>
+        </select></div>
+        <!-- Cloud provider fields -->
+        <div id="provider-cloud-fields">
+          <div class="form-row"><span class="form-label">Model</span><input id="set-model" placeholder="gpt-4o-mini"></div>
+          <div class="form-row"><span class="form-label">API Key</span><input id="set-apikey" type="password" placeholder="sk-..."></div>
+        </div>
+        <!-- Ollama fields -->
+        <div id="provider-ollama-fields" style="display:none">
+          <div class="form-row"><span class="form-label">Model</span><input id="set-ollama-model" placeholder="tinyllama, llama3.2, deepseek-r1:7b"></div>
+          <div class="form-row"><span class="form-label">Ollama URL</span><input id="set-ollama-url" placeholder="http://localhost:11434"></div>
+          <div class="form-row" style="background:var(--accent-glow);border-color:var(--accent)"><span class="form-label" style="color:var(--accent2)">💡 Tip</span><span style="font-size:12px;color:var(--text2)">Install: <code style="color:var(--cyan)">curl -fsSL https://ollama.ai/install.sh | sh</code> then <code style="color:var(--cyan)">ollama pull tinyllama</code></span></div>
+        </div>
+        <!-- Brain Engine fields -->
+        <div id="provider-brain-fields" style="display:none">
+          <div class="form-row"><span class="form-label">Model Path</span><input id="set-brain-path" placeholder="~/.bizclaw/models/tinyllama.gguf"></div>
+          <div class="form-row"><span class="form-label">Threads</span><input id="set-brain-threads" type="number" min="1" max="32" value="4" placeholder="4"></div>
+          <div class="form-row" style="background:var(--accent-glow);border-color:var(--accent)"><span class="form-label" style="color:var(--accent2)">🧠 Brain</span><span style="font-size:12px;color:var(--text2)">GGUF models run 100% offline. Download: <code style="color:var(--cyan)">bizclaw brain download tinyllama-1.1b</code></span></div>
+        </div>
+        <!-- llama.cpp fields -->
+        <div id="provider-llamacpp-fields" style="display:none">
+          <div class="form-row"><span class="form-label">Server URL</span><input id="set-llamacpp-url" placeholder="http://localhost:8080"></div>
+          <div class="form-row"><span class="form-label">Model</span><input id="set-llamacpp-model" placeholder="(auto-detected)"></div>
+        </div>
         <div class="form-row"><span class="form-label">Temperature</span><input id="set-temp" type="number" step="0.1" min="0" max="2" value="0.7"></div>
       </div>
       <div class="form-section">
@@ -385,8 +453,18 @@ function routeFromPath() {
   showPage(name, false);
 }
 
-// ═══ DASHBOARD ═══
+// ═══ DASHBOARD (widget-based) ═══
+function updateClock() {
+  const now = new Date();
+  const el = document.getElementById('w-clock');
+  const dt = document.getElementById('w-date');
+  if(el) el.textContent = now.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if(dt) dt.textContent = now.toLocaleDateString(currentLang==='vi'?'vi-VN':'en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+setInterval(updateClock, 1000);
+
 async function loadDashboard() {
+  updateClock();
   try {
     const info = await (await authFetch(API + '/api/v1/info')).json();
     document.getElementById('s-version').textContent = 'v' + (info.version||'?');
@@ -397,6 +475,12 @@ async function loadDashboard() {
     document.getElementById('agent-name').textContent = (info.name || 'BizClaw') + ' Agent';
     const arch = info.platform || '';
     document.getElementById('brain-simd').textContent = arch.includes('aarch64') ? 'NEON' : arch.includes('x86') ? 'AVX2/SSE2' : 'Auto';
+    // Parse system info
+    const parts = arch.split('-');
+    const sysOs = document.getElementById('sys-os');
+    const sysArch = document.getElementById('sys-arch');
+    if(sysOs) sysOs.textContent = parts.length >= 2 ? parts.slice(1).join('-') : arch;
+    if(sysArch) sysArch.textContent = parts[0] || '—';
   } catch(e) {}
   try {
     const ch = await (await authFetch(API + '/api/v1/channels')).json();
@@ -426,30 +510,73 @@ async function loadConfig() {
   } catch(e) { configData = {}; }
 }
 
+// Provider-specific form visibility
+function onProviderChange() {
+  const provider = document.getElementById('set-provider').value;
+  // Hide all provider-specific sections
+  ['cloud','ollama','brain','llamacpp'].forEach(id => {
+    const el = document.getElementById('provider-'+id+'-fields');
+    if(el) el.style.display = 'none';
+  });
+  // Show the relevant one
+  if (provider === 'brain') {
+    document.getElementById('provider-brain-fields').style.display = '';
+  } else if (provider === 'ollama') {
+    document.getElementById('provider-ollama-fields').style.display = '';
+  } else if (provider === 'llamacpp') {
+    document.getElementById('provider-llamacpp-fields').style.display = '';
+  } else {
+    document.getElementById('provider-cloud-fields').style.display = '';
+  }
+}
+
 function loadSettingsForm() {
   const c = configData;
   if (!c.default_provider) return;
-  document.getElementById('set-provider').value = c.default_provider || 'openai';
-  document.getElementById('set-model').value = c.default_model || '';
+  const provider = c.default_provider || 'openai';
+  document.getElementById('set-provider').value = provider;
   document.getElementById('set-temp').value = c.default_temperature || 0.7;
+  // Fill model & API key for cloud providers
+  document.getElementById('set-model').value = c.default_model || '';
   document.getElementById('set-apikey').value = c.api_key_set ? '••••••••' : '';
+  // Fill Ollama fields
+  document.getElementById('set-ollama-model').value = (provider === 'ollama' ? c.default_model : '') || '';
+  // Fill Brain fields
+  const brain = c.brain || {};
+  document.getElementById('set-brain-path').value = brain.model_path || '';
+  document.getElementById('set-brain-threads').value = brain.threads || 4;
+  // Toggle visibility
+  onProviderChange();
+  // Identity
   const id = c.identity || {};
   document.getElementById('set-name').value = id.name || '';
   document.getElementById('set-persona').value = id.persona || '';
   document.getElementById('set-sysprompt').value = id.system_prompt || '';
+  // Memory
   const mem = c.memory || {};
   document.getElementById('set-mem-backend').value = mem.backend || 'sqlite';
   document.getElementById('set-mem-autosave').value = String(mem.auto_save !== false);
+  // Autonomy
   const auto = c.autonomy || {};
   document.getElementById('set-auto-level').value = auto.level || 'supervised';
   document.getElementById('set-auto-workspace').value = String(auto.workspace_only !== false);
 }
 
 async function saveSettings() {
-  const apiKeyVal = document.getElementById('set-apikey').value;
+  const provider = document.getElementById('set-provider').value;
+  let modelVal = '';
+  if (provider === 'brain') {
+    modelVal = 'brain-local';
+  } else if (provider === 'ollama') {
+    modelVal = document.getElementById('set-ollama-model').value;
+  } else if (provider === 'llamacpp') {
+    modelVal = document.getElementById('set-llamacpp-model').value;
+  } else {
+    modelVal = document.getElementById('set-model').value;
+  }
   const body = {
-    default_provider: document.getElementById('set-provider').value,
-    default_model: document.getElementById('set-model').value,
+    default_provider: provider,
+    default_model: modelVal,
     default_temperature: parseFloat(document.getElementById('set-temp').value),
     identity: {
       name: document.getElementById('set-name').value,
@@ -465,7 +592,18 @@ async function saveSettings() {
       workspace_only: document.getElementById('set-auto-workspace').value === 'true',
     },
   };
-  if (apiKeyVal && !apiKeyVal.startsWith('•')) body.api_key = apiKeyVal;
+  // Provider-specific fields
+  if (provider === 'brain') {
+    body.brain = {
+      enabled: true,
+      model_path: document.getElementById('set-brain-path').value,
+      threads: parseInt(document.getElementById('set-brain-threads').value) || 4,
+    };
+  }
+  const apiKeyVal = document.getElementById('set-apikey').value;
+  if (apiKeyVal && !apiKeyVal.startsWith('•') && !['brain','ollama','llamacpp'].includes(provider)) {
+    body.api_key = apiKeyVal;
+  }
   try {
     const res = await authFetch(API + '/api/v1/config/update', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const r = await res.json();
