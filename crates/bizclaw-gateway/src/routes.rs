@@ -5,6 +5,13 @@ use std::sync::Arc;
 
 use super::server::AppState;
 
+/// Mask a secret string for display — show first 4 chars + •••
+fn mask_secret(s: &str) -> String {
+    if s.is_empty() { return String::new(); }
+    if s.len() <= 4 { return "••••".to_string(); }
+    format!("{}••••", &s[..4])
+}
+
 /// Health check endpoint.
 pub async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({
@@ -89,25 +96,39 @@ pub async fn get_config(
         "channels": {
             "telegram": cfg.channel.telegram.as_ref().map(|t| serde_json::json!({
                 "enabled": t.enabled,
+                "bot_token": mask_secret(&t.bot_token),
                 "bot_token_set": !t.bot_token.is_empty(),
-                "allowed_chat_ids": t.allowed_chat_ids,
+                "allowed_chat_ids": t.allowed_chat_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(", "),
             })),
             "zalo": cfg.channel.zalo.as_ref().map(|z| serde_json::json!({
                 "enabled": z.enabled,
                 "mode": z.mode,
                 "cookie_path": z.personal.cookie_path,
+                "cookie": if z.personal.cookie_path.is_empty() { "".to_string() } else { "•••• (saved to file)".to_string() },
                 "imei": z.personal.imei,
                 "self_listen": z.personal.self_listen,
                 "auto_reconnect": z.personal.auto_reconnect,
-                "rate_limit": {
-                    "max_per_minute": z.rate_limit.max_messages_per_minute,
-                    "max_per_hour": z.rate_limit.max_messages_per_hour,
-                },
             })),
             "discord": cfg.channel.discord.as_ref().map(|d| serde_json::json!({
                 "enabled": d.enabled,
+                "bot_token": mask_secret(&d.bot_token),
                 "bot_token_set": !d.bot_token.is_empty(),
-                "allowed_channel_ids": d.allowed_channel_ids,
+                "allowed_channel_ids": d.allowed_channel_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(", "),
+            })),
+            "email": cfg.channel.email.as_ref().map(|e| serde_json::json!({
+                "enabled": e.enabled,
+                "smtp_host": e.smtp_host,
+                "smtp_port": e.smtp_port,
+                "smtp_user": e.email,
+                "smtp_pass": mask_secret(&e.password),
+                "imap_host": e.imap_host,
+                "imap_port": e.imap_port,
+            })),
+            "whatsapp": cfg.channel.whatsapp.as_ref().map(|w| serde_json::json!({
+                "enabled": w.enabled,
+                "phone_number_id": w.phone_number_id,
+                "access_token": mask_secret(&w.access_token),
+                "business_id": w.business_id,
             })),
         },
     }))
@@ -195,10 +216,28 @@ pub async fn update_config(
 
     // Save to disk
     let content = toml::to_string_pretty(&*cfg).unwrap_or_default();
+    let new_cfg = cfg.clone();
+    drop(cfg); // Release lock before file write + agent reinit
+
     match std::fs::write(&state.config_path, &content) {
         Ok(_) => {
             tracing::info!("✅ Config saved to {}", state.config_path.display());
-            Json(serde_json::json!({"ok": true, "message": "Config saved"}))
+
+            // Re-initialize Agent with new config (async, don't block response)
+            let agent_lock = state.agent.clone();
+            tokio::spawn(async move {
+                match bizclaw_agent::Agent::new_with_mcp(new_cfg).await {
+                    Ok(new_agent) => {
+                        let mut guard = agent_lock.lock().await;
+                        tracing::info!("🔄 Agent re-initialized: provider={}, tools={}",
+                            new_agent.provider_name(), new_agent.tool_count());
+                        *guard = Some(new_agent);
+                    }
+                    Err(e) => tracing::warn!("⚠️ Agent re-init failed: {e}"),
+                }
+            });
+
+            Json(serde_json::json!({"ok": true, "message": "Config saved — agent reloading"}))
         }
         Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
     }
@@ -215,7 +254,10 @@ pub async fn update_channel(
 
     match channel_type {
         "telegram" => {
-            let token = req.get("bot_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let token_val = req.get("bot_token").and_then(|v| v.as_str()).unwrap_or("");
+            let token = if token_val.contains('•') {
+                cfg.channel.telegram.as_ref().map(|t| t.bot_token.clone()).unwrap_or_default()
+            } else { token_val.to_string() };
             let chat_ids: Vec<i64> = req.get("allowed_chat_ids")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
@@ -243,7 +285,11 @@ pub async fn update_channel(
             cfg.channel.zalo = Some(zalo_cfg);
         }
         "discord" => {
-            let token = req.get("bot_token").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let token_val = req.get("bot_token").and_then(|v| v.as_str()).unwrap_or("");
+            let token = if token_val.contains('•') {
+                // Keep existing token if masked value sent
+                cfg.channel.discord.as_ref().map(|d| d.bot_token.clone()).unwrap_or_default()
+            } else { token_val.to_string() };
             let ids: Vec<u64> = req.get("allowed_channel_ids")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
@@ -252,6 +298,32 @@ pub async fn update_channel(
                 .collect();
             cfg.channel.discord = Some(bizclaw_core::config::DiscordChannelConfig {
                 enabled, bot_token: token, allowed_channel_ids: ids,
+            });
+        }
+        "email" => {
+            let smtp_host = req.get("smtp_host").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let smtp_port = req.get("smtp_port").and_then(|v| v.as_str()).unwrap_or("587")
+                .parse::<u16>().unwrap_or(587);
+            let email_addr = req.get("smtp_user").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let pass_val = req.get("smtp_pass").and_then(|v| v.as_str()).unwrap_or("");
+            let password = if pass_val.contains('•') {
+                cfg.channel.email.as_ref().map(|e| e.password.clone()).unwrap_or_default()
+            } else { pass_val.to_string() };
+            let imap_host = req.get("imap_host").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            cfg.channel.email = Some(bizclaw_core::config::EmailChannelConfig {
+                enabled, smtp_host, smtp_port, email: email_addr, password,
+                imap_host, imap_port: 993,
+            });
+        }
+        "whatsapp" => {
+            let phone_val = req.get("phone_number_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let token_val = req.get("access_token").and_then(|v| v.as_str()).unwrap_or("");
+            let token = if token_val.contains('•') {
+                cfg.channel.whatsapp.as_ref().map(|w| w.access_token.clone()).unwrap_or_default()
+            } else { token_val.to_string() };
+            cfg.channel.whatsapp = Some(bizclaw_core::config::WhatsAppChannelConfig {
+                enabled, phone_number_id: phone_val, access_token: token,
+                webhook_verify_token: String::new(), business_id: String::new(),
             });
         }
         _ => {

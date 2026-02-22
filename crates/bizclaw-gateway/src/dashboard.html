@@ -698,10 +698,12 @@ async function openZaloQR() {
     const res = await authFetch(API + '/api/v1/zalo/qr', {method:'POST',headers:{'Content-Type':'application/json'}});
     const r = await res.json();
     if (r.ok) {
+      toast('✅ Mã QR đã tạo thành công! Quét bằng Zalo.');
       document.getElementById('zalo-qr-content').innerHTML = r.qr_code.startsWith('data:') 
         ? `<img src="${r.qr_code}" style="max-width:280px;border-radius:12px;border:2px solid var(--accent)">`
         : `<div style="background:#fff;padding:16px;border-radius:12px;display:inline-block"><div style="font-family:var(--mono);font-size:11px;word-break:break-all;color:#333;max-width:260px">${r.qr_code}</div></div>`;
-      document.getElementById('zalo-qr-instructions').innerHTML = (r.instructions||[]).map(i => `<div style="margin:3px 0">${i}</div>`).join('');
+      document.getElementById('zalo-qr-instructions').innerHTML = (r.instructions||[]).map(i => `<div style="margin:3px 0">${i}</div>`).join('')
+        + `<div style="margin-top:12px"><button class="btn btn-green" onclick="confirmZaloQR('${r.imei||''}')">✅ Xác nhận đã quét thành công</button></div>`;
       document.getElementById('zalo-qr-imei').textContent = r.imei ? `IMEI: ${r.imei}` : '';
       // Auto-fill IMEI into channel card
       const imeiEl = document.getElementById('ch-zalo-imei');
@@ -712,6 +714,23 @@ async function openZaloQR() {
   } catch(e) {
     document.getElementById('zalo-qr-content').innerHTML = `<div style="color:var(--red)">Lỗi kết nối: ${e.message}</div>`;
   }
+}
+
+async function confirmZaloQR(imei) {
+  // Save zalo channel as enabled with the IMEI from QR
+  const body = { channel_type: 'zalo', enabled: true, imei: imei };
+  try {
+    const res = await authFetch(API + '/api/v1/channels/update', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const r = await res.json();
+    if (r.ok) {
+      toast('🎉 Zalo đã kết nối thành công!');
+      closeZaloQR();
+      await loadConfig();
+      renderChannelCards();
+    } else {
+      toast('❌ ' + r.error);
+    }
+  } catch(e) { toast('❌ ' + e.message); }
 }
 
 function closeZaloQR() {
