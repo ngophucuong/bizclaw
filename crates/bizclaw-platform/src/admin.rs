@@ -81,7 +81,12 @@ impl AdminServer {
             .route("/api/admin/pairing/validate", post(validate_pairing))
             .route("/", get(admin_dashboard_page));
 
-        protected.merge(public).with_state(state)
+        // SPA fallback — serve dashboard HTML for all non-API paths
+        // so that /tenants, /settings, /ollama etc. all work
+        let spa_fallback = Router::new()
+            .fallback(get(admin_dashboard_page));
+
+        protected.merge(public).merge(spa_fallback).with_state(state)
     }
 
     /// Start the admin server.

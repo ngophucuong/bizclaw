@@ -1,84 +1,73 @@
 # ⚡ BizClaw
 
-> **Hạ tầng AI Assistant nhanh, module hoá — viết hoàn toàn bằng Rust.**
+> **Hạ tầng AI Agent nhanh, module hoá — viết hoàn toàn bằng Rust.**
 
 BizClaw là nền tảng AI Agent kiến trúc trait-driven, có thể chạy **mọi nơi** — từ Raspberry Pi đến cloud server. Hỗ trợ nhiều LLM provider, kênh giao tiếp, và công cụ thông qua kiến trúc thống nhất, hoán đổi được.
 
 [![Rust](https://img.shields.io/badge/Rust-100%25-orange?logo=rust)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-66%20passing-brightgreen)]()
-[![LoC](https://img.shields.io/badge/lines-11.2k%20Rust-informational)]()
-[![Coverage](https://img.shields.io/badge/crates-11%2F11%20tested-success)]()
+[![Crates](https://img.shields.io/badge/crates-12%2F12-success)]()
 
 ---
 
-## �🇳 Tiếng Việt
+## 🇻🇳 Tiếng Việt
 
-### 🚀 100% Tự Host - Không phụ thuộc Cloud
+### 🚀 100% Tự Host — Không phụ thuộc Cloud
 
-Dự án này được thiết kế theo chuẩn **Local-First & Self-Hosted**. Anh em không cần phải đăng ký tài khoản qua nền tảng trung gian, không có bất kỳ telemetry hay tracker nào gửi về server quản lý. Code clone về là của anh em!
+- **100% Độc lập:** Clone về là chạy — laptop, VPS, hay Raspberry Pi. Không token khoá, không telemetry.
+- **Dữ liệu nội bộ:** Chat history, API Keys mã hoá AES-256 lưu local.
+- **Offline AI:** Brain Engine chạy LLM offline (Llama, DeepSeek) — tối ưu cho 512MB RAM.
 
-- **100% Độc lập:** Tự do build và chạy thẳng trên Laptop cá nhân, VPS, hay một con Raspberry Pi nhét túi quần. Không bị khoá token hay giới hạn chức năng từ bất kỳ server "mẹ" nào.
-- **Dữ liệu hoàn toàn nội bộ:** Lịch sử chat (Zalo, Telegram) và các API Keys bí mật của anh em đều được mã hoá AES-256 lưu nội bộ trong ổ cứng.
-- **Offline AI (Brain Engine):** Server rớt mạng Internet? Không thành vấn đề. BizClaw có thể kéo các model mã nguồn mở trực tiếp về thiết bị (Llama, DeepSeek) và chạy hoàn toàn Offline (tối ưu cực tốt cho máy chỉ có 512MB RAM).
+### 🎯 Tính năng
 
-### 🎯 Tính năng chính
-
-- **🧠 Brain Engine** — LLaMA inference: GGUF, mmap, quantization, **Flash Attention**, **FP16 KV Cache** (50% memory↓), **KV Cache Persistence**, **Grammar-Constrained JSON**, **Pre-computed RoPE**
-- **🔌 8 Providers** — OpenAI, Anthropic, Ollama, llama.cpp, Brain, **Gemini**, **DeepSeek**, **Groq**, OpenRouter
-- **💬 Đa kênh** — CLI, Zalo (Personal + OA), Telegram (polling), Discord (Gateway WS), Webhook
-- **🌐 Web Dashboard** — Giao diện quản lý tại `localhost:3000` (embedded SPA)
-- **🏢 Multi-Tenant Platform** — Admin dashboard, tenant management, JWT auth, pairing codes, audit log
-- **⚡ Init Wizard** — Cài đặt chỉ với 1 lệnh `bizclaw init`
-- **🛠️ Tool Calling** — Shell, File, **Web Search** (DuckDuckGo), registry động
-- **🔒 Bảo mật** — Command allowlist, JWT + bcrypt, AES-256, HMAC-SHA256
-- **💾 Bộ nhớ** — SQLite, vector search (cosine), chế độ NoOp
-- **⚡ SIMD** — ARM NEON, x86 SSE2/AVX2 auto-dispatch
-- **📦 Module hoá** — 12 crates, 66 tests, 100% implemented
+| Hạng mục | Chi tiết |
+|----------|----------|
+| **🧠 Brain Engine** | LLaMA inference: GGUF, mmap, quantization, Flash Attention, FP16 KV Cache |
+| **🔌 8 Providers** | OpenAI, Anthropic, Ollama, llama.cpp, Brain, Gemini, DeepSeek, Groq |
+| **💬 6 Channels** | CLI, Zalo Personal, Telegram, Discord (Gateway WS), Email (IMAP/SMTP), Webhook |
+| **🏢 Multi-Tenant** | Admin Platform, JWT Auth, Tenant Manager, Pairing Codes, Audit Log |
+| **🌐 Web Dashboard** | Chat UI (VI/EN), WebSocket real-time, embedded SPA |
+| **🛠️ 5 Tools** | Shell, File, Web Search, Group Summarizer, Google Calendar |
+| **🔒 Security** | Command allowlist, AES-256, HMAC-SHA256, JWT + bcrypt |
+| **💾 Memory** | SQLite + RAG-style retrieval, keyword search, relevance scoring |
+| **⚡ SIMD** | ARM NEON, x86 SSE2/AVX2 auto-dispatch |
 
 ### 🏗️ Kiến trúc
 
 ```
-┌───────────────────────────────────────────────────────────┐
-│                      bizclaw (CLI)                         │
-│               ┌─────────────────────┐                      │
-│               │   bizclaw-agent     │                      │
-│               │  (điều phối trung   │                      │
-│               │   tâm)              │                      │
-│               └──────┬──────────────┘                      │
-│      ┌───────────────┼───────────────┐                     │
-│      ▼               ▼               ▼                     │
-│ ┌──────────┐  ┌───────────┐  ┌─────────────┐             │
-│ │Providers │  │ Channels  │  │   Tools     │             │
-│ │──────────│  │───────────│  │─────────────│             │
-│ │ OpenAI   │  │   CLI     │  │  Shell      │             │
-│ │Anthropic │  │  Zalo     │  │  File       │             │
-│ │ Ollama   │  │ Telegram  │  │  (tuỳ chỉnh)│             │
-│ │LlamaCpp  │  │ Discord   │  └─────────────┘             │
-│ │  Brain   │  │ Webhook   │                               │
-│ └──────────┘  └───────────┘                               │
-│      ┌───────────────┬───────────────┐                    │
-│      ▼               ▼               ▼                    │
-│ ┌──────────┐  ┌───────────┐  ┌─────────────┐            │
-│ │ Memory   │  │ Security  │  │  Gateway    │            │
-│ │──────────│  │───────────│  │─────────────│            │
-│ │ SQLite   │  │Allowlist  │  │ Axum HTTP   │            │
-│ │ Vector   │  │ Sandbox   │  │ WebSocket   │            │
-│ │  NoOp    │  │ AES-256   │  │ REST API    │            │
-│ └──────────┘  └───────────┘  └─────────────┘            │
-│                     ▼                                     │
-│            ┌──────────────────┐                           │
-│            │  bizclaw-brain   │                           │
-│            │──────────────────│                           │
-│            │ GGUF v3 Parser   │                           │
-│            │ Forward Pass     │                           │
-│            │ BPE Tokenizer    │                           │
-│            │ Attention + GQA  │                           │
-│            │ KV Cache         │                           │
-│            │ Quantization     │                           │
-│            │ SIMD / Rayon     │                           │
-│            └──────────────────┘                           │
-└───────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│                 bizclaw (CLI)                     │
+│          ┌──────────────────┐                     │
+│          │  bizclaw-agent   │ ← RAG Memory        │
+│          │  Multi-round     │   + Tool Calling     │
+│          │  Tool Calling    │   (max 3 rounds)     │
+│          └──────┬───────────┘                     │
+│    ┌────────────┼─────────────┐                   │
+│    ▼            ▼             ▼                   │
+│ Providers    Channels       Tools                 │
+│ ────────    ────────       ─────                 │
+│ OpenAI      CLI            Shell                 │
+│ Anthropic   Zalo           File                  │
+│ Ollama      Telegram       Web Search            │
+│ Gemini      Discord        Calendar              │
+│ DeepSeek    Email          Group Summarizer       │
+│ Groq        Webhook                              │
+│ Brain                                            │
+│    ┌────────────┼─────────────┐                   │
+│    ▼            ▼             ▼                   │
+│ Memory       Security      Gateway               │
+│ ────────    ────────       ─────                 │
+│ SQLite      Allowlist      Axum HTTP             │
+│ RAG         AES-256        WebSocket             │
+│ Vector      Sandbox        REST API              │
+│                                                   │
+│          ┌──────────────────┐                     │
+│          │  bizclaw-brain   │                     │
+│          │  GGUF + SIMD     │                     │
+│          │  Offline LLM     │                     │
+│          └──────────────────┘                     │
+└─────────────────────────────────────────────────┘
 ```
 
 ### 🚀 Bắt đầu nhanh
@@ -92,27 +81,106 @@ cargo build --release
 # Cài đặt (wizard tương tác)
 ./target/release/bizclaw init
 
-# Chat ngay
-./target/release/bizclaw chat
+# Chat ngay (interactive CLI)
+./target/release/bizclaw agent --interactive
 
-# Mở Web Dashboard
-./target/release/bizclaw serve --open
+# Chat 1 câu
+./target/release/bizclaw agent -m "Xin chào!"
 
-# Chat với Ollama (model cục bộ)
-./target/release/bizclaw chat --provider ollama --model llama3.2
+# Mở Web Dashboard (single tenant)
+./target/release/bizclaw serve
+```
 
-# Tải model cho Brain Engine
-./target/release/bizclaw brain download tinyllama-1.1b
-./target/release/bizclaw brain test "Xin chào!"
+### 🏢 Chế độ triển khai
+
+BizClaw hỗ trợ **2 chế độ chạy**:
+
+#### 1. Standalone Mode — Một tenant duy nhất
+
+Phù hợp cho: cá nhân, startup nhỏ, test/demo.
+
+```bash
+# Chỉ cần binary `bizclaw` — KHÔNG cần bizclaw-platform
+./target/release/bizclaw serve --port 3000
+
+# Hoặc chạy channels trực tiếp
+./target/release/bizclaw channel start --all
+```
+
+- Không cần Admin Platform
+- Config bằng file `~/.bizclaw/config.toml`
+- Web Dashboard tại `localhost:3000`
+- Quản lý channels qua CLI hoặc dashboard
+
+#### 2. Platform Mode — Multi-Tenant
+
+Phù hợp cho: agency, nhiều bots, production server.
+
+```bash
+# Cần build cả 2 binaries
+cargo build --release --bin bizclaw --bin bizclaw-platform
+
+# Khởi tạo admin user
+./target/release/bizclaw-platform --init-admin
+
+# Chạy platform (quản lý nhiều tenants)
+./target/release/bizclaw-platform --port 3001
+
+# Mỗi tenant sẽ được tạo qua Admin Dashboard
+# và tự động chạy trên port riêng (10001, 10002, ...)
+```
+
+- Admin Dashboard tại `http://localhost:3001`
+- Mỗi tenant là 1 process `bizclaw serve` riêng
+- Tenant quản lý qua REST API hoặc Web UI
+- JWT Auth + Pairing Code cho bảo mật
+
+### 🧠 Ollama / Brain Engine — Shared Models
+
+Ollama models được **dùng chung** giữa tất cả tenants:
+
+```
+┌─────────────────────────────────────────┐
+│         Ollama Server (shared)           │
+│         localhost:11434                   │
+│         ┌─────────────────┐             │
+│         │ tinyllama (1.5GB)│             │
+│         │ llama3.2  (3.8GB)│             │
+│         └─────────────────┘             │
+│              ▲    ▲    ▲                │
+│              │    │    │                │
+│  Tenant A ───┘    │    └─── Tenant C    │
+│  (ollama/         │         (openai/    │
+│   tinyllama)      │          gpt-4o)    │
+│              Tenant B                    │
+│              (ollama/                    │
+│               llama3.2)                  │
+└─────────────────────────────────────────┘
+```
+
+- **Pull model 1 lần** → tất cả tenant dùng được
+- **RAM:** ~2-4GB cho 7B model (chỉ 1 model active cùng lúc)
+- **Mỗi tenant chọn model riêng** trong config (provider + model)
+- **Cloud fallback:** Nếu không đủ RAM → dùng OpenAI, Anthropic, Gemini
+
+```bash
+# Cài Ollama trên server
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull model nhẹ (~1.5GB)
+ollama pull tinyllama
+
+# Hoặc model mạnh hơn (~3.8GB, cần 4GB+ RAM)
+ollama pull llama3.2
 ```
 
 ### ⚙️ Cấu hình
 
-File cấu hình tại `~/.bizclaw/config.toml`:
+File config tại `~/.bizclaw/config.toml`:
 
 ```toml
-default_provider = "openai"
-default_model = "gpt-4o-mini"
+default_provider = "ollama"    # hoặc "openai", "anthropic", "gemini"
+default_model = "tinyllama"
 default_temperature = 0.7
 
 [identity]
@@ -121,164 +189,15 @@ persona = "Trợ lý AI thông minh"
 system_prompt = "Bạn là BizClaw, trợ lý AI nhanh và có năng lực."
 
 [brain]
-enabled = true
-model_path = "~/.bizclaw/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
-threads = 4
-temperature = 0.7
+enabled = false                # true = dùng Brain Engine (offline)
+model_path = "~/.bizclaw/models/tinyllama.gguf"
 
 [memory]
 backend = "sqlite"
 auto_save = true
 
 [gateway]
-enabled = false
-host = "127.0.0.1"
-port = 3000
-
-[autonomy]
-level = "supervised"
-allowed_commands = ["ls", "cat", "echo", "pwd", "find", "grep"]
-```
-
-### 📦 Bảng Crate
-
-| Crate | Mô tả | Tests | Trạng thái |
-|-------|--------|-------|------------|
-| `bizclaw-core` | Traits, types, config, errors | 11 | ✅ Hoàn thành |
-| `bizclaw-brain` | GGUF + Forward Pass + SIMD | 12 | ✅ Hoàn thành |
-| `bizclaw-providers` | OpenAI, Anthropic, Ollama, LlamaCpp, Brain, Custom | — | ✅ Hoàn thành |
-| `bizclaw-channels` | CLI, Zalo, Telegram (polling), Discord (GW), Webhook | 2 | ✅ Hoàn thành |
-| `bizclaw-memory` | SQLite, Vector, NoOp backends | 3 | ✅ Hoàn thành |
-| `bizclaw-tools` | Shell, File, Registry + arg validation | 5 | ✅ Hoàn thành |
-| `bizclaw-security` | Allowlist, Sandbox, AES-256 Secrets | 2 | ✅ Hoàn thành |
-| `bizclaw-agent` | Agent loop, context, tool execution | 4 | ✅ Hoàn thành |
-| `bizclaw-gateway` | Axum HTTP + WebSocket streaming | 4 | ✅ Hoàn thành |
-| `bizclaw-runtime` | Native process adapter | 2 | ✅ Hoàn thành |
-
-### 🧠 Brain Engine — Chi tiết
-
-| Thành phần | Mô tả |
-|------------|--------|
-| **GGUF v3 Parser** | Đọc metadata + tensor index đầy đủ |
-| **Forward Pass** | LLaMA transformer: Embedding → N×(RMSNorm→MHA+GQA→SwiGLU FFN)→LM Head |
-| **mmap Loader** | Tải model zero-copy (quan trọng cho Pi 512MB) |
-| **BPE Tokenizer** | Mã hoá byte-level với merge lặp |
-| **Tensor Ops** | RMSNorm, MatMul, Softmax, SiLU, ElementWise |
-| **Quantization** | Dequant Q4_0, Q8_0, F16, F32 |
-| **Attention** | Scaled dot-product, GQA (Grouped Query Attention) |
-| **KV Cache** | Cache key-value theo layer cho generation |
-| **RoPE** | Rotary Position Embeddings multi-head |
-| **Sampler** | Temperature, Top-K, Top-P, repeat penalty |
-| **Thread Pool** | Rayon parallel matmul đa luồng |
-
-### � Bảo mật
-
-| Tính năng | Mô tả |
-|-----------|--------|
-| **Danh sách lệnh** | Chỉ lệnh được phép mới thực thi được |
-| **Giới hạn đường dẫn** | Chặn truy cập `~/.ssh`, `/etc`, v.v. |
-| **Sandbox** | Timeout, cắt output, môi trường hạn chế |
-| **AES-256 Secrets** | Mã hoá key máy riêng (SHA-256 hostname+user) |
-| **Webhook HMAC** | Xác minh chữ ký SHA-256 cho webhook inbound |
-
-### 🗺️ Lộ trình
-
-- [x] **Phase 1** — Hạ tầng cốt lõi (traits, config, errors)
-- [x] **Phase 1** — Tất cả providers (OpenAI, Anthropic, Ollama, LlamaCpp, Custom)
-- [x] **Phase 1** — CLI channel, memory, security, gateway
-- [x] **Phase 2** — Brain engine (GGUF, tokenizer, tensor, quant, attention)
-- [x] **Phase 2** — Brain forward pass (toàn bộ transformer pipeline)
-- [x] **Phase 3** — Zalo client (Auth, WebSocket, Crypto, Messaging)
-- [x] **Phase 3** — Telegram polling + Discord Gateway WebSocket
-- [x] **Phase 3** — AES-256 encrypted secret store + Webhook channel
-- [x] **Phase 3** — Gateway WebSocket streaming (token-by-token)
-- [x] **Phase 4** — SIMD acceleration (NEON, SSE2, AVX2 auto-dispatch)
-- [x] **Phase 4** — HTTP streaming model download từ HuggingFace
-- [x] **Phase 5** — Zalo Personal/OA Channel wrappers
-- [x] **Phase 5** — Tool registry + arg validation
-- [x] **Phase 5** — 45 unit tests, 11/11 crates covered ✅
-
-### 📊 Thống kê
-
-| Chỉ số | Giá trị |
-|--------|---------|
-| **Ngôn ngữ** | 100% Rust |
-| **Số crate** | 11 (10 library + 1 binary) |
-| **Dòng code** | ~9,500 |
-| **Test** | 45 passing (11/11 crates) |
-| **Build** | 0 errors |
-| **Stubs** | 0 (100% implemented) |
-| **Web Dashboard** | Embedded SPA (dark theme) |
-| **Dependencies** | tokio, axum, reqwest, serde, rusqlite, rayon, memmap2, half, aes, sha2 |
-
----
-
-## 🇬🇧 English
-
-### 🎯 Features
-
-- **🧠 Local Brain Engine** — Run LLaMA models locally via GGUF with mmap, quantization, full forward pass, KV Cache, SIMD
-- **🔌 Multi-Provider** — OpenAI, Anthropic Claude, Ollama, llama.cpp, OpenRouter
-- **💬 Multi-Channel** — CLI, Zalo (Personal + OA), Telegram (polling), Discord (Gateway WS), Webhook (HMAC)
-- **🌐 Web Dashboard** — Built-in management UI at `localhost:3000` (embedded in binary)
-- **⚡ Init Wizard** — One-command setup: `bizclaw init`
-- **🛠️ Tool Calling** — Shell execution, file operations, dynamic registry with arg validation
-- **🔒 Security** — Command allowlists, path restrictions, sandbox, AES-256, HMAC-SHA256
-- **💾 Memory** — SQLite, vector search (cosine similarity), no-op mode
-- **⚡ SIMD** — ARM NEON (Pi/Apple Silicon), x86 SSE2/AVX2 auto-dispatch
-- **📦 Modular** — 11 crates, 45 tests, 100% implemented, swap via traits
-
-### 🚀 Quick Start
-
-```bash
-# Clone and build
-git clone https://github.com/nguyenduchoai/bizclaw.git
-cd bizclaw
-cargo build --release
-
-# Interactive setup wizard
-./target/release/bizclaw init
-
-# Start chatting
-./target/release/bizclaw chat
-
-# Open web dashboard
-./target/release/bizclaw serve --open
-
-# Chat with Ollama (local)
-./target/release/bizclaw chat --provider ollama --model llama3.2
-
-# Download model for Brain Engine
-./target/release/bizclaw brain download tinyllama-1.1b
-./target/release/bizclaw brain test "Hello!"
-```
-
-### ⚙️ Configuration
-
-TOML config at `~/.bizclaw/config.toml`:
-
-```toml
-default_provider = "openai"
-default_model = "gpt-4o-mini"
-default_temperature = 0.7
-
-[identity]
-name = "BizClaw"
-persona = "A helpful AI assistant"
-system_prompt = "You are BizClaw, a fast and capable AI assistant."
-
-[brain]
 enabled = true
-model_path = "~/.bizclaw/models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
-threads = 4
-temperature = 0.7
-
-[memory]
-backend = "sqlite"
-auto_save = true
-
-[gateway]
-enabled = false
 host = "127.0.0.1"
 port = 3000
 
@@ -289,147 +208,114 @@ allowed_commands = ["ls", "cat", "echo", "pwd", "find", "grep"]
 
 ### 📦 Crate Map
 
-| Crate | Description | Status |
-|-------|-------------|--------|
-| `bizclaw-core` | Traits, types, config, errors | ✅ Complete |
-| `bizclaw-brain` | Local GGUF inference engine + Forward Pass | ✅ Complete |
-| `bizclaw-providers` | OpenAI, Anthropic, Ollama, LlamaCpp, Brain, Custom | ✅ Complete |
-| `bizclaw-channels` | CLI, Zalo (Auth/WS/Crypto), Telegram, Discord | ✅ Complete |
-| `bizclaw-memory` | SQLite, Vector, NoOp backends | ✅ Complete |
-| `bizclaw-tools` | Shell, File tools + registry | ✅ Complete |
-| `bizclaw-security` | Allowlist, Sandbox, AES-256 Secrets | ✅ Complete |
-| `bizclaw-agent` | Agent loop, context, tool execution | ✅ Complete |
-| `bizclaw-gateway` | Axum HTTP + WebSocket API | ✅ Complete |
-| `bizclaw-runtime` | Native process adapter | ✅ Complete |
+| Crate | Mô tả | Trạng thái |
+|-------|--------|------------|
+| `bizclaw-core` | Traits, types, config, errors | ✅ |
+| `bizclaw-brain` | GGUF inference + SIMD | ✅ |
+| `bizclaw-providers` | 8 LLM providers | ✅ |
+| `bizclaw-channels` | 6 channels (CLI, Zalo, TG, Discord, Email, Webhook) | ✅ |
+| `bizclaw-memory` | SQLite + RAG retrieval | ✅ |
+| `bizclaw-tools` | 5 tools (Shell, File, Search, Calendar, Summarizer) | ✅ |
+| `bizclaw-security` | Allowlist, AES-256, Sandbox | ✅ |
+| `bizclaw-agent` | Agent loop + multi-round tool calling | ✅ |
+| `bizclaw-gateway` | Axum HTTP + WebSocket + Dashboard | ✅ |
+| `bizclaw-runtime` | Native process adapter | ✅ |
+| `bizclaw-platform` | Multi-tenant admin platform | ✅ |
 
-### 🧠 Brain Engine
+### 🔒 Bảo mật
 
-| Component | Description |
-|-----------|-------------|
-| **GGUF v3 Parser** | Full metadata + tensor index parsing |
-| **Forward Pass** | LLaMA transformer: Embedding → N×(RMSNorm→MHA+GQA→SwiGLU FFN)→LM Head |
-| **mmap Loader** | Zero-copy model loading (critical for Pi 512MB) |
-| **BPE Tokenizer** | Byte-level encoding with iterative merges |
-| **Tensor Ops** | RMSNorm, MatMul, Softmax, SiLU, ElementWise |
-| **Quantization** | Q4_0, Q8_0, F16, F32 dequantization kernels |
-| **Attention** | Scaled dot-product with GQA (Grouped Query Attention) |
-| **KV Cache** | Per-layer key-value cache for auto-regressive generation |
-| **RoPE** | Multi-head Rotary Position Embeddings |
-| **Sampler** | Temperature, Top-K, Top-P, repeat penalty |
-| **Thread Pool** | Rayon-based parallel matmul |
+| Tính năng | Mô tả |
+|-----------|--------|
+| **Allowlist** | Chỉ lệnh được phép mới thực thi |
+| **Path Restrictions** | Chặn `~/.ssh`, `/etc` |
+| **Sandbox** | Timeout, cắt output |
+| **AES-256** | Mã hoá key (hostname+user) |
+| **JWT + bcrypt** | Admin Platform auth |
+| **HMAC-SHA256** | Webhook signature |
 
 ### 📡 Gateway API
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
+| Endpoint | Method | Mô tả |
+|----------|--------|--------|
 | `/health` | GET | Health check |
-| `/api/v1/info` | GET | System info + uptime |
-| `/api/v1/config` | GET | Sanitized config |
+| `/api/v1/info` | GET | System info |
+| `/api/v1/config` | GET | Config (sanitized) |
 | `/api/v1/providers` | GET | Available providers |
-| `/api/v1/channels` | GET | Available channels |
-| `/ws` | WS | Real-time WebSocket chat |
-
-### 🔒 Security Model
-
-| Feature | Description |
-|---------|-------------|
-| **Command Allowlist** | Only whitelisted commands can be executed |
-| **Path Restrictions** | Forbidden paths (e.g., `~/.ssh`) are rejected |
-| **Workspace Only** | Optionally restrict to current working directory |
-| **Sandbox** | Timeout, output truncation, restricted env |
-| **AES-256 Secrets** | Machine-specific key encryption (SHA-256 hostname+user) |
-
-### 🗺️ Roadmap
-
-- [x] **Phase 1** — Core infrastructure (traits, config, error handling)
-- [x] **Phase 1** — All providers (OpenAI, Anthropic, Ollama, LlamaCpp, Custom)
-- [x] **Phase 1** — CLI channel, memory backends, security, gateway
-- [x] **Phase 2** — Brain engine (GGUF, tokenizer, tensor, quant, attention)
-- [x] **Phase 2** — Brain forward pass (full transformer pipeline)
-- [x] **Phase 3** — Zalo client (Auth, WebSocket, Crypto, Messaging)
-- [x] **Phase 3** — Telegram polling + Discord Gateway WebSocket
-- [x] **Phase 3** — AES-256 encrypted secret store + Webhook channel
-- [x] **Phase 3** — Gateway WebSocket streaming (token-by-token)
-- [x] **Phase 4** — SIMD acceleration (NEON, SSE2, AVX2 auto-dispatch)
-- [x] **Phase 4** — HTTP streaming model download from HuggingFace
-- [x] **Phase 5** — Zalo Personal/OA Channel wrappers
-- [x] **Phase 5** — Tool registry + arg validation
-- [x] **Phase 5** — 45 unit tests, 11/11 crates covered ✅
+| `/api/v1/channels` | GET | Channel list |
+| `/ws` | WS | Real-time chat |
 
 ### 📁 Project Structure
 
 ```
 bizclaw/
 ├── Cargo.toml                 # Workspace root
-├── src/main.rs                # CLI binary
+├── src/
+│   ├── main.rs                # bizclaw CLI binary
+│   └── platform_main.rs       # bizclaw-platform binary
 ├── crates/
-│   ├── bizclaw-core/          # Traits, types, config, errors
-│   ├── bizclaw-brain/         # Local GGUF inference engine
-│   │   ├── forward.rs         # Full LLaMA transformer forward pass
-│   │   ├── gguf.rs            # GGUF v3 parser
-│   │   ├── mmap.rs            # Memory-mapped loader
-│   │   ├── tokenizer.rs       # BPE tokenizer
-│   │   ├── tensor.rs          # Math ops (RMSNorm, MatMul, etc.)
-│   │   ├── quant.rs           # Quantization kernels
-│   │   ├── attention.rs       # Scaled dot-product attention
-│   │   ├── kv_cache.rs        # Key-value cache
-│   │   ├── rope.rs            # Rotary position embeddings
-│   │   ├── sampler.rs         # Token sampling
-│   │   └── model.rs           # LLaMA model params
-│   ├── bizclaw-providers/     # LLM provider impls
-│   │   ├── openai.rs          # OpenAI / OpenRouter
-│   │   ├── anthropic.rs       # Anthropic Claude
-│   │   ├── ollama.rs          # Ollama (local/remote)
-│   │   ├── llamacpp.rs        # llama.cpp server
-│   │   ├── brain.rs           # Local brain with Mutex
-│   │   └── custom.rs          # Any OpenAI-compatible
-│   ├── bizclaw-channels/      # Communication channels
-│   │   ├── cli.rs             # Interactive terminal
-│   │   ├── telegram.rs        # Telegram Bot API
-│   │   ├── discord.rs         # Discord Bot API
-│   │   └── zalo/              # Zalo Personal + OA
-│   │       └── client/        # Auth, Crypto, WS, Messaging
-│   ├── bizclaw-memory/        # Persistence backends
-│   ├── bizclaw-tools/         # Tool execution
-│   ├── bizclaw-security/      # Security + AES-256 secrets
-│   ├── bizclaw-agent/         # Agent orchestration
-│   ├── bizclaw-gateway/       # HTTP + WebSocket API
-│   └── bizclaw-runtime/       # Process adapters
-└── plans/                     # Project plans & specs
+│   ├── bizclaw-core/          # Traits, types, config
+│   ├── bizclaw-brain/         # Local GGUF inference
+│   ├── bizclaw-providers/     # LLM providers (8)
+│   ├── bizclaw-channels/      # Communication (6 channels)
+│   ├── bizclaw-memory/        # SQLite + RAG
+│   ├── bizclaw-tools/         # Tools (5)
+│   ├── bizclaw-security/      # AES-256, Sandbox
+│   ├── bizclaw-agent/         # Agent engine
+│   ├── bizclaw-gateway/       # HTTP + WebSocket + Dashboard
+│   ├── bizclaw-runtime/       # Process adapters
+│   └── bizclaw-platform/      # Multi-tenant admin
+└── deploy/                    # Deployment configs
 ```
 
 ### 🧪 Testing
 
 ```bash
-# Run all 45 tests
+# Chạy tất cả tests
 cargo test --workspace
 
-# Brain engine (12 tests: tensor, SIMD, attention, quant, rope)
-cargo test -p bizclaw-brain
+# Test từng crate
+cargo test -p bizclaw-brain     # Brain engine (12 tests)
+cargo test -p bizclaw-core      # Core types (11 tests)
+cargo test -p bizclaw-tools     # Tools (5 tests)
+cargo test -p bizclaw-agent     # Agent (4 tests)
+cargo test -p bizclaw-gateway   # Gateway (4 tests)
+```
 
-# Core types (11 tests: config, errors, messages)
-cargo test -p bizclaw-core
+### 🚀 Production Deployment
 
-# Tools (5 tests: registry, arg validation)
-cargo test -p bizclaw-tools
+```bash
+# 1. Build release binaries
+cargo build --release
 
-# Agent (4 tests: context management)
-cargo test -p bizclaw-agent
+# 2a. Standalone (1 bot)
+cp target/release/bizclaw /usr/local/bin/
+bizclaw init
+bizclaw serve --port 3000
 
-# Gateway (4 tests: route handlers)
-cargo test -p bizclaw-gateway
+# 2b. Platform (nhiều bots)
+cp target/release/bizclaw target/release/bizclaw-platform /usr/local/bin/
+bizclaw-platform --init-admin --port 3001
 
-# Memory (3 tests: vector search)
-cargo test -p bizclaw-memory
+# 3. Systemd service
+sudo tee /etc/systemd/system/bizclaw-platform.service << 'EOF'
+[Unit]
+Description=BizClaw Multi-Tenant Platform
+After=network.target
 
-# Security (2 tests: AES-256)
-cargo test -p bizclaw-security
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/bizclaw-platform --port 3001
+Restart=always
+RestartSec=5
 
-# Channels (2 tests: Zalo crypto, webhook)
-cargo test -p bizclaw-channels
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl enable --now bizclaw-platform
 
-# Runtime (2 tests: info, exec)
-cargo test -p bizclaw-runtime
+# 4. Nginx reverse proxy (optional)
+# admin.yourdomain.com → :3001
+# bot1.yourdomain.com  → :10001
 ```
 
 ### 📊 Stats
@@ -439,13 +325,62 @@ cargo test -p bizclaw-runtime
 | **Language** | 100% Rust |
 | **Crates** | 12 (11 library + 1 binary) |
 | **Lines of Code** | ~11,200 |
-| **Tests** | 66 passing (12/12 crates) |
-| **Providers** | 8 (OpenAI, Anthropic, Ollama, llama.cpp, Brain, Gemini, DeepSeek, Groq) |
-| **Build** | 0 errors |
-| **Stubs** | 0 (100% implemented) |
-| **Web Dashboard** | Embedded SPA (dark theme) |
-| **Multi-Tenant** | Admin Platform, JWT Auth, Tenant Manager |
-| **Dependencies** | tokio, axum, reqwest, serde, rusqlite, rayon, memmap2, half, aes, sha2, bcrypt, jsonwebtoken |
+| **Tests** | 66 passing |
+| **Providers** | 8 |
+| **Channels** | 6 |
+| **Tools** | 5 |
+| **Binary Size** | bizclaw 7.6MB, bizclaw-platform 5.6MB |
+| **RAM (idle)** | ~1.8MB |
+
+---
+
+## 🇬🇧 English
+
+### Features
+
+- **🧠 Brain Engine** — Local LLaMA inference via GGUF with SIMD
+- **🔌 8 Providers** — OpenAI, Anthropic, Ollama, llama.cpp, Brain, Gemini, DeepSeek, Groq
+- **💬 6 Channels** — CLI, Zalo, Telegram, Discord, Email (IMAP/SMTP), Webhook
+- **🏢 Multi-Tenant Platform** — Admin dashboard, JWT auth, tenant lifecycle
+- **🌐 Web Dashboard** — Bilingual (VI/EN), real-time WebSocket chat
+- **🛠️ 5 Tools** — Shell, File, Web Search, Group Summarizer, Calendar
+- **🔒 Security** — AES-256, Command allowlists, sandbox, HMAC-SHA256
+- **💾 RAG Memory** — SQLite with keyword search and relevance scoring
+- **⚡ SIMD** — ARM NEON, x86 SSE2/AVX2 auto-dispatch
+
+### Quick Start
+
+```bash
+git clone https://github.com/nguyenduchoai/bizclaw.git
+cd bizclaw && cargo build --release
+
+# Standalone (single bot)
+./target/release/bizclaw init
+./target/release/bizclaw agent --interactive
+
+# Platform (multi-tenant)
+./target/release/bizclaw-platform --init-admin
+./target/release/bizclaw-platform --port 3001
+```
+
+### Deployment Modes
+
+| Mode | Binary | Use Case |
+|------|--------|----------|
+| **Standalone** | `bizclaw` only | Single bot, personal use, testing |
+| **Platform** | `bizclaw` + `bizclaw-platform` | Multiple bots, agency, production |
+
+### Ollama Shared Models
+
+All tenants share the same Ollama instance. Pull a model once, every tenant can use it.
+
+```bash
+curl -fsSL https://ollama.ai/install.sh | sh
+ollama pull tinyllama    # ~1.5GB, good for 2GB RAM
+ollama pull llama3.2     # ~3.8GB, needs 4GB+ RAM
+```
+
+Each tenant selects its own provider/model in config. Cloud providers (OpenAI, etc.) work without Ollama.
 
 ---
 
