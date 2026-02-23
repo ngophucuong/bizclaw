@@ -3183,36 +3183,44 @@ async function sendGroupMessage(messageText) {
   saveGroups();
   renderGroupMessagesInChat();
   
-  // Show typing indicators for ALL agents at once
-  const typingIds = {};
+  // Sequential discussion: each agent sees previous agents' responses
+  // This enables real deliberation — agents can agree, disagree, add insights
+  const roundResponses = []; // Collect responses from this discussion round
+  
   for (const agentName of g.agents) {
-    const typingMsg = { role: 'system', content: `\ud83e\udd16 ${agentName} \u0111ang suy ngh\u0129...`, _temp: true, _agent: agentName };
-    g.messages.push(typingMsg);
-    typingIds[agentName] = typingMsg;
-  }
-  saveGroups();
-  renderGroupMessagesInChat();
+    // Show typing for current agent
+    g.messages.push({ role: 'system', content: `\ud83e\udd16 ${agentName} \u0111ang suy ngh\u0129...`, _temp: true, _agent: agentName });
+    saveGroups();
+    renderGroupMessagesInChat();
+    
+    // Build context WITH previous agents' responses
+    let context = `[Nhóm "${g.name}" — Chủ đề: ${g.topic || 'Thảo luận chung'}]
+Bạn là agent "${agentName}" trong cuộc thảo luận nhóm.
 
-  // Send to ALL agents in PARALLEL — much faster!
-  const promises = g.agents.map(async (agentName) => {
-    const agentContext = `[Group "${g.name}" - Topic: ${g.topic}]
-You are agent "${agentName}" in a group discussion. Here is the latest message:
+📩 Tin nhắn mới từ User:
+${text}`;
 
-User: ${text}
-
-Contribute your perspective briefly (2-3 sentences) based on your expertise.`;
-
+    if (roundResponses.length > 0) {
+      context += `\n\n💬 Các agent đã phát biểu trước bạn:\n`;
+      context += roundResponses.map(r => `• ${r.agent}: ${r.content}`).join('\n');
+      context += `\n\nHãy đọc ý kiến của các agent trước, sau đó đưa ra góc nhìn riêng của bạn. Có thể đồng ý, bổ sung, hoặc phản biện. Trả lời ngắn gọn 2-4 câu.`;
+    } else {
+      context += `\n\nBạn là agent đầu tiên phát biểu. Hãy đưa ra góc nhìn dựa trên chuyên môn của bạn. Trả lời ngắn gọn 2-4 câu.`;
+    }
+    
     try {
       const res = await authFetch(API + `/api/v1/agents/${encodeURIComponent(agentName)}/chat`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ message: agentContext })
+        body: JSON.stringify({ message: context })
       });
       const r = await res.json();
-      // Remove this agent's typing indicator
+      // Remove typing indicator
       const tempIdx = g.messages.findIndex(m => m._temp && m._agent === agentName);
       if (tempIdx >= 0) g.messages.splice(tempIdx, 1);
       if (r.ok) {
-        g.messages.push({ role: 'agent', agent: agentName, agent_role: r.role || 'assistant', content: r.response, time: new Date().toISOString() });
+        const response = r.response || '';
+        roundResponses.push({ agent: agentName, content: response });
+        g.messages.push({ role: 'agent', agent: agentName, agent_role: r.role || 'assistant', content: response, time: new Date().toISOString() });
       } else {
         g.messages.push({ role: 'agent', agent: agentName, agent_role: 'assistant', content: '\u274c ' + (r.error || 'Error'), time: new Date().toISOString() });
       }
@@ -3221,13 +3229,9 @@ Contribute your perspective briefly (2-3 sentences) based on your expertise.`;
       if (tempIdx >= 0) g.messages.splice(tempIdx, 1);
       g.messages.push({ role: 'agent', agent: agentName, agent_role: 'assistant', content: '\u274c ' + e.message, time: new Date().toISOString() });
     }
-    // Render after EACH agent finishes — progressive display
     saveGroups();
     renderGroupMessagesInChat();
-  });
-
-  // Wait for all agents to finish
-  await Promise.all(promises);
+  }
   
   g.messages.push({ role: 'system', content: '\u2014\u2014 T\u1ea5t c\u1ea3 agent \u0111\u00e3 tr\u1ea3 l\u1eddi \u2014\u2014' });
   saveGroups();
