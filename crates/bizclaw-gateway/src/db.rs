@@ -336,7 +336,34 @@ impl GatewayDb {
             params![name, label, icon, provider_type, api_key, base_url, chat_path, models_path, auth_style, env_keys_json, models_json],
         ).map_err(|e| format!("Upsert provider: {e}"))?;
 
-        self.get_provider(name)
+        // Read back using SAME connection — do NOT call self.get_provider() which would deadlock
+        conn.query_row(
+            "SELECT name, label, icon, provider_type, api_key, base_url, chat_path, models_path, auth_style, env_keys_json, models_json, is_active, enabled, created_at, updated_at FROM providers WHERE name=?1",
+            params![name],
+            |row| {
+                let models_json_str: String = row.get(10)?;
+                let models_vec: Vec<String> = serde_json::from_str(&models_json_str).unwrap_or_default();
+                let env_keys_str: String = row.get(9)?;
+                let env_keys_vec: Vec<String> = serde_json::from_str(&env_keys_str).unwrap_or_default();
+                Ok(Provider {
+                    name: row.get(0)?,
+                    label: row.get(1)?,
+                    icon: row.get(2)?,
+                    provider_type: row.get(3)?,
+                    api_key: row.get(4)?,
+                    base_url: row.get(5)?,
+                    chat_path: row.get(6)?,
+                    models_path: row.get(7)?,
+                    auth_style: row.get(8)?,
+                    env_keys: env_keys_vec,
+                    models: models_vec,
+                    is_active: row.get::<_, i32>(11)? != 0,
+                    enabled: row.get::<_, i32>(12)? != 0,
+                    created_at: row.get(13)?,
+                    updated_at: row.get(14)?,
+                })
+            },
+        ).map_err(|e| format!("Get provider after upsert: {e}"))
     }
 
     /// Get a single provider.
@@ -434,7 +461,17 @@ impl GatewayDb {
             params![name, role, description, provider, model, system_prompt],
         ).map_err(|e| format!("Upsert agent: {e}"))?;
 
-        self.get_agent(name)
+        // Read back using SAME connection — do NOT call self.get_agent() which would deadlock
+        conn.query_row(
+            "SELECT name, role, description, provider, model, system_prompt, enabled, created_at, updated_at FROM agents WHERE name=?1",
+            params![name],
+            |row| Ok(AgentRecord {
+                name: row.get(0)?, role: row.get(1)?, description: row.get(2)?,
+                provider: row.get(3)?, model: row.get(4)?, system_prompt: row.get(5)?,
+                enabled: row.get::<_, i32>(6)? != 0,
+                created_at: row.get(7)?, updated_at: row.get(8)?,
+            }),
+        ).map_err(|e| format!("Get agent after upsert: {e}"))
     }
 
     /// Get a single agent.
