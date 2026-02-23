@@ -214,7 +214,7 @@ footer a{color:var(--accent2);text-decoration:none}
     </div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="num">50+</div><div class="label" data-vi="Agent Templates" data-en="Agent Templates">Agent Templates</div></div>
-      <div class="hero-stat"><div class="num">8</div><div class="label" data-vi="AI Providers" data-en="AI Providers">AI Providers</div></div>
+      <div class="hero-stat"><div class="num">15</div><div class="label" data-vi="AI Providers" data-en="AI Providers">AI Providers</div></div>
       <div class="hero-stat"><div class="num">15+</div><div class="label" data-vi="Built-in Tools" data-en="Built-in Tools">Built-in Tools</div></div>
       <div class="hero-stat"><div class="num">&lt;2s</div><div class="label" data-vi="Khởi động" data-en="Boot time">Khởi động</div></div>
     </div>
@@ -235,8 +235,8 @@ footer a{color:var(--accent2);text-decoration:none}
       </div>
       <div class="feature-card fade-up" style="--i:1">
         <span class="feature-icon">🔌</span>
-        <h3 data-vi="8 AI Providers" data-en="8 AI Providers">8 AI Providers</h3>
-        <p data-vi="OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp, Brain Engine. Hỗ trợ custom base URL cho mọi proxy tương thích OpenAI API." data-en="OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp, Brain Engine. Custom base URL support for any OpenAI-compatible proxy.">OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp, Brain Engine. Hỗ trợ custom base URL cho mọi proxy tương thích OpenAI API.</p>
+        <h3 data-vi="15 AI Providers" data-en="15 AI Providers">15 AI Providers</h3>
+        <p data-vi="OpenAI, Anthropic, Gemini, DeepSeek, Groq, OpenRouter, Together, MiniMax, xAI (Grok), Mistral, Ollama, llama.cpp, Brain Engine, CLIProxy, vLLM. Hỗ trợ custom endpoint." data-en="OpenAI, Anthropic, Gemini, DeepSeek, Groq, OpenRouter, Together, MiniMax, xAI (Grok), Mistral, Ollama, llama.cpp, Brain Engine, CLIProxy, vLLM. Custom endpoints supported.">OpenAI, Anthropic, Gemini, DeepSeek, Groq, OpenRouter, Together, MiniMax, xAI (Grok), Mistral, Ollama, llama.cpp, Brain Engine, CLIProxy, vLLM. Hỗ trợ custom endpoint.</p>
       </div>
       <div class="feature-card fade-up" style="--i:2">
         <span class="feature-icon">🏢</span>
@@ -294,6 +294,13 @@ footer a{color:var(--accent2);text-decoration:none}
       <div class="provider-pill">🦙 Ollama</div>
       <div class="provider-pill">🔧 llama.cpp</div>
       <div class="provider-pill">🧲 Brain (Local)</div>
+      <div class="provider-pill">🔀 OpenRouter</div>
+      <div class="provider-pill">🤝 Together</div>
+      <div class="provider-pill">🎯 MiniMax</div>
+      <div class="provider-pill">🚀 xAI (Grok)</div>
+      <div class="provider-pill">🌬️ Mistral</div>
+      <div class="provider-pill">🔌 CLIProxy</div>
+      <div class="provider-pill">📡 vLLM</div>
 
     </div>
   </div>
@@ -317,6 +324,111 @@ footer a{color:var(--accent2);text-decoration:none}
       <div class="step fade-up" style="--i:2">
         <h4 data-vi="🚀 AI làm việc thay bạn!" data-en="🚀 AI works for you!">🚀 AI làm việc thay bạn!</h4>
         <p data-vi="Trợ lý AI trả lời khách hàng trên Zalo, quản lý lịch, email — 24/7 kể cả khi bạn ngủ." data-en="Your AI replies to customers on Zalo, manages calendar, email — 24/7 even while you sleep.">Trợ lý AI trả lời khách hàng trên Zalo, quản lý lịch, email — 24/7 kể cả khi bạn ngủ.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 💰 TOKEN SAVINGS — KEY DIFFERENTIATOR -->
+<section id="token-savings" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-label" data-vi="ĐIỂM KHÁC BIỆT" data-en="KEY DIFFERENTIATOR">ĐIỂM KHÁC BIỆT</div>
+    <div class="section-title" data-vi="💰 Tiết kiệm 60-80% chi phí API" data-en="💰 Save 60-80% on API costs">💰 Tiết kiệm 60-80% chi phí API</div>
+    <div class="section-desc" data-vi="Mỗi Agent chọn Provider riêng — thay vì dùng 1 provider đắt tiền cho tất cả, hãy tối ưu theo vai trò." data-en="Each Agent picks its own Provider — instead of using one expensive provider for all, optimize by role.">Mỗi Agent chọn Provider riêng — thay vì dùng 1 provider đắt tiền cho tất cả, hãy tối ưu theo vai trò.</div>
+
+    <!-- Cost comparison table -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;overflow:hidden;position:relative" class="fade-up">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#34d399,#6366f1,#f472b6)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:14px">
+        <!-- Header -->
+        <div style="padding:14px 16px;background:var(--surface);font-weight:700;border-bottom:1px solid var(--border)" data-vi="Agent" data-en="Agent">Agent</div>
+        <div style="padding:14px 16px;background:var(--surface);font-weight:700;border-bottom:1px solid var(--border)" data-vi="Provider" data-en="Provider">Provider</div>
+        <div style="padding:14px 16px;background:var(--surface);font-weight:700;border-bottom:1px solid var(--border);text-align:center" data-vi="Chi phí" data-en="Cost">Chi phí</div>
+        <div style="padding:14px 16px;background:var(--surface);font-weight:700;border-bottom:1px solid var(--border)" data-vi="Lý do" data-en="Why">Lý do</div>
+        <!-- Rows -->
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">🌐 Dịch thuật</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--green);font-weight:600">Ollama/qwen3</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);text-align:center;font-weight:700;color:var(--green)">$0</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px" data-vi="Miễn phí, chạy local" data-en="Free, runs locally">Miễn phí, chạy local</div>
+
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">💻 Full-Stack Dev</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--accent2);font-weight:600">Claude Sonnet</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);text-align:center;font-weight:700;color:var(--orange)">$$$</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px" data-vi="Cần model mạnh nhất" data-en="Needs strongest model">Cần model mạnh nhất</div>
+
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">📣 Social Media</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--cyan);font-weight:600">Gemini Flash</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);text-align:center;font-weight:700;color:var(--green)">$</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px" data-vi="Nhanh, giá rẻ" data-en="Fast, cheap">Nhanh, giá rẻ</div>
+
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">📊 Kế toán</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:#60a5fa;font-weight:600">DeepSeek Chat</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);text-align:center;font-weight:700;color:#facc15">$$</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px" data-vi="Chất lượng / giá tốt nhất" data-en="Best quality/price">Chất lượng / giá tốt nhất</div>
+
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">📞 Helpdesk</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--pink);font-weight:600">Groq/Llama 3.3</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);text-align:center;font-weight:700;color:var(--green)">$</div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px" data-vi="Latency thấp nhất" data-en="Lowest latency">Latency thấp nhất</div>
+
+        <div style="padding:12px 16px">🔒 Nội bộ</div>
+        <div style="padding:12px 16px;color:var(--orange);font-weight:600">Brain Engine</div>
+        <div style="padding:12px 16px;text-align:center;font-weight:700;color:var(--green)">$0</div>
+        <div style="padding:12px 16px;color:var(--muted);font-size:13px" data-vi="Offline, bảo mật tuyệt đối" data-en="Offline, absolute security">Offline, bảo mật tuyệt đối</div>
+      </div>
+
+      <div style="display:flex;gap:20px;margin-top:24px;justify-content:center;flex-wrap:wrap">
+        <div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:12px;padding:16px 24px;text-align:center">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:800;color:var(--green)" data-vi="60-80%" data-en="60-80%">60-80%</div>
+          <div style="font-size:13px;color:var(--muted)" data-vi="Tiết kiệm chi phí API" data-en="API cost savings">Tiết kiệm chi phí API</div>
+        </div>
+        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:16px 24px;text-align:center">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:800;color:var(--accent2)" data-vi="15" data-en="15">15</div>
+          <div style="font-size:13px;color:var(--muted)" data-vi="Nhà cung cấp hỗ trợ" data-en="Supported providers">Nhà cung cấp hỗ trợ</div>
+        </div>
+        <div style="background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.2);border-radius:12px;padding:16px 24px;text-align:center">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:800;color:var(--pink)" data-vi="∞" data-en="∞">∞</div>
+          <div style="font-size:13px;color:var(--muted)" data-vi="Agent, mỗi agent 1 provider" data-en="Agents, each with own provider">Agent, mỗi agent 1 provider</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 👥 GROUP CHAT SECTION -->
+<section id="group-chat">
+  <div class="container">
+    <div class="section-label" data-vi="CỘNG TÁC" data-en="COLLABORATION">CỘNG TÁC</div>
+    <div class="section-title" data-vi="👥 Group Chat — Đội ngũ Agent cộng tác" data-en="👥 Group Chat — Agent Team Collaboration">👥 Group Chat — Đội ngũ Agent cộng tác</div>
+    <div class="section-desc" data-vi="Tạo nhóm nhiều agent cùng nhà cung cấp khác nhau. Gửi 1 câu hỏi → tất cả agent phản hồi theo chuyên môn." data-en="Create groups of agents with different providers. Send 1 question → all agents respond with their expertise.">Tạo nhóm nhiều agent cùng nhà cung cấp khác nhau. Gửi 1 câu hỏi → tất cả agent phản hồi theo chuyên môn.</div>
+
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px;position:relative;overflow:hidden" class="fade-up">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--grad2)"></div>
+      <!-- Chat simulation -->
+      <div style="max-width:600px;margin:0 auto">
+        <div style="background:var(--accent-glow);border:1px solid rgba(99,102,241,.3);border-radius:12px 12px 12px 4px;padding:14px 18px;margin-bottom:20px;font-size:14px">
+          <div style="font-weight:700;color:var(--accent2);font-size:12px;margin-bottom:4px" data-vi="👤 BẠN" data-en="👤 YOU">👤 BẠN</div>
+          <span data-vi="&quot;Chuẩn bị pitch cho nhà đầu tư Series A&quot;" data-en="&quot;Prepare a pitch for Series A investors&quot;">"Chuẩn bị pitch cho nhà đầu tư Series A"</span>
+        </div>
+
+        <div style="display:grid;gap:12px">
+          <div style="background:var(--surface);border:1px solid rgba(99,102,241,.15);border-radius:4px 12px 12px 12px;padding:14px 18px;font-size:13px">
+            <div style="font-weight:700;font-size:11px;margin-bottom:4px"><span style="color:var(--accent2)">🧑‍💼 Chiến lược</span> <span style="font-weight:400;color:var(--muted)">(Claude)</span></div>
+            <span data-vi="Phân tích TAM/SAM/SOM, USP, competitive moat..." data-en="TAM/SAM/SOM analysis, USP, competitive moat...">Phân tích TAM/SAM/SOM, USP, competitive moat...</span>
+          </div>
+          <div style="background:var(--surface);border:1px solid rgba(52,211,153,.15);border-radius:4px 12px 12px 12px;padding:14px 18px;font-size:13px">
+            <div style="font-weight:700;font-size:11px;margin-bottom:4px"><span style="color:var(--green)">📊 Tài chính</span> <span style="font-weight:400;color:var(--muted)">(DeepSeek)</span></div>
+            <span data-vi="Unit economics, revenue projections, burn rate..." data-en="Unit economics, revenue projections, burn rate...">Unit economics, revenue projections, burn rate...</span>
+          </div>
+          <div style="background:var(--surface);border:1px solid rgba(34,211,238,.15);border-radius:4px 12px 12px 12px;padding:14px 18px;font-size:13px">
+            <div style="font-weight:700;font-size:11px;margin-bottom:4px"><span style="color:var(--cyan)">📣 Marketing</span> <span style="font-weight:400;color:var(--muted)">(Gemini)</span></div>
+            <span data-vi="Brand story, go-to-market strategy, traction..." data-en="Brand story, go-to-market strategy, traction...">Brand story, go-to-market strategy, traction...</span>
+          </div>
+          <div style="background:var(--surface);border:1px solid rgba(251,146,60,.15);border-radius:4px 12px 12px 12px;padding:14px 18px;font-size:13px">
+            <div style="font-weight:700;font-size:11px;margin-bottom:4px"><span style="color:var(--orange)">⚖️ Pháp lý</span> <span style="font-weight:400;color:var(--muted)">(Groq)</span></div>
+            <span data-vi="Term sheet template, cap table, due diligence checklist..." data-en="Term sheet template, cap table, due diligence checklist...">Term sheet template, cap table, due diligence checklist...</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -358,8 +470,8 @@ footer a{color:var(--accent2);text-decoration:none}
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center" class="fade-up" style="--i:5">
         <div style="font-size:36px;margin-bottom:8px">🌐</div>
-        <h4 style="font-size:16px;font-weight:700;margin-bottom:6px" data-vi="8 AI Providers" data-en="8 AI Providers">8 AI Providers</h4>
-        <p style="font-size:13px;color:var(--muted)" data-vi="OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp, Brain Engine" data-en="OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp, Brain Engine">OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp, Brain Engine</p>
+        <h4 style="font-size:16px;font-weight:700;margin-bottom:6px" data-vi="15 AI Providers" data-en="15 AI Providers">15 AI Providers</h4>
+        <p style="font-size:13px;color:var(--muted)" data-vi="OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp + 8 providers khác" data-en="OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp + 8 more providers">OpenAI, Anthropic, Gemini, DeepSeek, Groq, Ollama, llama.cpp + 8 providers khác</p>
       </div>
     </div>
 

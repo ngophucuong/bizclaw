@@ -10,7 +10,7 @@ BizClaw là nền tảng AI Agent kiến trúc trait-driven, có thể chạy **
 [![Crates](https://img.shields.io/badge/crates-14-success)]()
 [![LOC](https://img.shields.io/badge/lines-32781-informational)]()
 
-<!-- AUTO-GENERATED STATS — updated 2026-02-24 @ eaec8d8 -->
+<!-- AUTO-GENERATED STATS — updated 2026-02-24 @ abc2b8a -->
 
 ---
 
@@ -198,7 +198,7 @@ ollama pull qwen3         # ~4.7GB
 | **Gallery** | 51 business agent templates |
 | **Dashboard** | 11 pages, bilingual (VI/EN) |
 | **Binary Size** | bizclaw 12M, platform 7.2M |
-| **Last Updated** | 2026-02-24 (eaec8d8) |
+| **Last Updated** | 2026-02-24 (abc2b8a) |
 
 ---
 
