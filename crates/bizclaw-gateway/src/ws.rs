@@ -53,7 +53,7 @@ fn active_provider(state: &AppState) -> String {
     let config = state.full_config.lock().unwrap();
     let provider = config.default_provider.clone();
     if provider.is_empty() {
-        "openai".to_string()
+        "ollama".to_string()
     } else {
         provider
     }
@@ -66,8 +66,8 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
     let provider = active_provider(&state);
     let model = active_model(&state);
 
-    // Check if Agent Engine is available
-    let has_agent = {
+    // Check if Agent Engine is available at connection start (for welcome msg)
+    let has_agent_initial = {
         let agent = state.agent.lock().await;
         agent.is_some()
     };
@@ -79,8 +79,8 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
         "version": env!("CARGO_PKG_VERSION"),
         "provider": &provider,
         "model": &model,
-        "agent_engine": has_agent,
-        "capabilities": if has_agent {
+        "agent_engine": has_agent_initial,
+        "capabilities": if has_agent_initial {
             vec!["chat", "stream", "ping", "tools", "memory"]
         } else {
             vec!["chat", "stream", "ping"]
@@ -90,7 +90,7 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
         return;
     }
 
-    if has_agent {
+    if has_agent_initial {
         tracing::info!("WS session using Agent Engine (tools + memory enabled)");
     } else {
         tracing::info!("WS session using direct provider calls (no tools/memory)");
@@ -127,6 +127,32 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
                             send_error(&mut socket, "Empty message").await;
                             continue;
                         }
+
+                        // Re-read provider/model from config each request (may have changed)
+                        let provider = active_provider(&state);
+                        let model = active_model(&state);
+
+                        // Dynamic agent check: re-check each request so config changes take effect
+                        let has_agent = {
+                            let agent = state.agent.lock().await;
+                            if let Some(ref a) = *agent {
+                                // Only use Agent if its provider matches current config provider
+                                let agent_provider = a.provider_name().to_string();
+                                let providers_match = agent_provider == provider
+                                    || (provider == "brain" && agent_provider == "brain")
+                                    || (provider == "ollama" && agent_provider == "ollama")
+                                    || (provider == "llamacpp" && agent_provider == "llamacpp");
+                                if !providers_match {
+                                    tracing::warn!(
+                                        "Agent provider ({}) != config provider ({}), using direct mode",
+                                        agent_provider, provider
+                                    );
+                                }
+                                providers_match
+                            } else {
+                                false
+                            }
+                        };
 
                         tracing::info!(
                             "Chat req={request_id}: provider={provider}, model={model}, stream={stream}, len={}, agent={has_agent}",
@@ -314,12 +340,10 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
                                     // Add assistant response to fallback history
                                     fallback_history.push(serde_json::json!({"role": "assistant", "content": &response}));
 
-                                    // Also save to Agent memory if available
-                                    if has_agent {
+                                    // Save to Agent memory if any agent exists (memory is provider-agnostic)
+                                    {
                                         let mut agent = state.agent.lock().await;
                                         if let Some(agent) = agent.as_mut() {
-                                            // Feed the streamed conversation into agent's memory
-                                            // by processing but we just save to memory directly
                                             agent.save_memory_public(&content, &response).await;
                                         }
                                     }
@@ -348,7 +372,9 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
                     }
 
                     "status" => {
-                        let agent_info = if has_agent {
+                        let current_provider = active_provider(&state);
+                        let current_model = active_model(&state);
+                        let agent_info = {
                             let agent = state.agent.lock().await;
                             if let Some(agent) = agent.as_ref() {
                                 serde_json::json!({
@@ -360,17 +386,15 @@ async fn handle_socket(mut socket: WebSocket, state: Arc<AppState>) {
                             } else {
                                 serde_json::json!(null)
                             }
-                        } else {
-                            serde_json::json!(null)
                         };
 
                         let status = serde_json::json!({
                             "type": "status",
                             "requests_processed": request_counter,
                             "uptime_secs": state.start_time.elapsed().as_secs(),
-                            "provider": &provider,
-                            "model": &model,
-                            "agent_engine": has_agent,
+                            "provider": &current_provider,
+                            "model": &current_model,
+                            "agent_engine": agent_info != serde_json::json!(null),
                             "agent": agent_info,
                         });
                         let _ = send_json(&mut socket, &status).await;

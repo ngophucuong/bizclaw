@@ -74,17 +74,26 @@ impl SqliteMemory {
 
     /// Get conversation count across all sessions.
     pub fn conversation_count(&self) -> usize {
-        let conn = self.conn.lock().unwrap();
+        let conn = match self.conn.lock() {
+            Ok(c) => c,
+            Err(_) => return 0,
+        };
         conn.query_row("SELECT COUNT(*) FROM memories", [], |r| r.get::<_, i64>(0))
             .unwrap_or(0) as usize
     }
 
     /// List sessions with their message counts.
     pub fn list_sessions(&self) -> Vec<(String, String, i64)> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn
+        let conn = match self.conn.lock() {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
+        let mut stmt = match conn
             .prepare("SELECT id, name, message_count FROM sessions ORDER BY updated_at DESC")
-            .unwrap();
+        {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
         stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default()

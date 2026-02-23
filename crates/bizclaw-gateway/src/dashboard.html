@@ -84,18 +84,38 @@ th{text-align:left;font-size:11px;color:var(--text2);text-transform:uppercase;le
 td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
 tr:hover td{background:rgba(255,255,255,.02)}
 
-/* Chat */
-.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 120px)}
-.chat-messages{flex:1;overflow-y:auto;padding:12px 0;display:flex;flex-direction:column;gap:10px}
+/* Chat — 2 Column Messenger Layout */
+.chat-layout{display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 80px);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.chat-sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2);overflow:hidden}
+.chat-sidebar-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.chat-sidebar-header h3{font-size:14px;font-weight:600;margin:0}
+.chat-list{flex:1;overflow-y:auto;padding:6px}
+.chat-list-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:all .15s;margin-bottom:2px}
+.chat-list-item:hover{background:var(--surface2)}
+.chat-list-item.active{background:var(--accent-glow);border:1px solid rgba(99,102,241,.3)}
+.chat-list-icon{font-size:20px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--surface);flex-shrink:0}
+.chat-list-info{flex:1;min-width:0}
+.chat-list-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-list-sub{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-list-badge{font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;text-transform:uppercase;flex-shrink:0}
+.chat-list-sep{padding:6px 14px;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:4px}
+.chat-main{display:flex;flex-direction:column;background:var(--bg)}
+.chat-main-header{padding:12px 18px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.chat-main-header .chat-target{display:flex;align-items:center;gap:10px}
+.chat-main-header .chat-target-icon{font-size:22px}
+.chat-main-header .chat-target-name{font-size:15px;font-weight:700}
+.chat-main-header .chat-target-sub{font-size:11px;color:var(--text2)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
 .msg{max-width:72%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.55;animation:fadeIn .2s}
 .msg-user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
 .msg-bot{align-self:flex-start;background:var(--surface2);border:1px solid var(--border);border-bottom-left-radius:4px;white-space:pre-wrap;font-family:var(--font)}
+.msg-agent{align-self:flex-start;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-bottom-left-radius:4px;white-space:pre-wrap}
 .msg-system{align-self:center;font-size:11px;color:var(--text2);font-style:italic}
-.chat-input-wrap{display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border)}
-.chat-input-wrap input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 16px;color:var(--text);font-size:13px;outline:none}
+.chat-input-wrap{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border);background:var(--surface)}
+.chat-input-wrap input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 16px;color:var(--text);font-size:13px;outline:none}
 .chat-input-wrap input:focus{border-color:var(--accent)}
 .chat-input-wrap button{background:var(--grad1);color:#fff;border:none;border-radius:8px;padding:11px 20px;font-size:13px;cursor:pointer;font-weight:600}
-.typing{color:var(--text2);font-size:12px;padding:4px 0}
+.typing{color:var(--text2);font-size:12px;padding:0 20px}
 
 /* Channel cards */
 .ch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
@@ -124,7 +144,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .pulse{animation:pulse 1.5s infinite}
 
 /* Responsive */
-@media(max-width:768px){.app{grid-template-columns:1fr}.sidebar{display:none}.main{padding:16px}.form-row{grid-template-columns:1fr}}
+@media(max-width:768px){.app{grid-template-columns:1fr}.sidebar{display:none}.main{padding:16px}.form-row{grid-template-columns:1fr}.chat-layout{grid-template-columns:1fr}.chat-sidebar{display:none}}
 </style>
 </head>
 <body>
@@ -284,26 +304,61 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
-    <!-- ═══ WEBCHAT ═══ -->
+    <!-- ═══ WEBCHAT (2-Column Messenger) ═══ -->
     <div id="page-chat" style="display:none">
-      <div class="page-header">
-        <h1>💬 <span data-i18n="chat.title">Trò chuyện</span></h1>
-        <div style="display:flex;align-items:center;gap:8px">
-          <select id="chat-agent-select" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px" onchange="onChatAgentChange()">
-            <option value="">🤖 Default Agent</option>
-          </select>
-          <button class="btn btn-outline btn-sm" onclick="refreshChatAgents()" title="Refresh agents">🔄</button>
+      <div class="chat-layout">
+        <!-- Left: Contact List -->
+        <div class="chat-sidebar">
+          <div class="chat-sidebar-header">
+            <h3>💬 <span data-i18n="chat.title">Trò chuyện</span></h3>
+            <button class="btn btn-outline btn-sm" onclick="refreshChatSidebar()" title="Refresh" style="padding:4px 8px;font-size:11px">🔄</button>
+          </div>
+          <div class="chat-list" id="chat-contact-list">
+            <!-- Populated by JS -->
+          </div>
+          <div style="padding:8px 10px;border-top:1px solid var(--border);display:flex;gap:6px">
+            <button class="btn btn-primary btn-sm" onclick="showCreateGroupForm()" style="flex:1;font-size:11px">+ <span data-i18n="groups.create">Nhóm mới</span></button>
+          </div>
+        </div>
+        <!-- Right: Chat Area -->
+        <div class="chat-main">
+          <div class="chat-main-header">
+            <div class="chat-target">
+              <span class="chat-target-icon" id="chat-target-icon">🤖</span>
+              <div>
+                <div class="chat-target-name" id="chat-target-name">Default Agent</div>
+                <div class="chat-target-sub" id="chat-target-sub">WebSocket • Direct</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <span class="badge badge-green" id="chat-status-badge">● Online</span>
+            </div>
+          </div>
+          <div class="chat-messages" id="chat-messages">
+            <div class="msg msg-system" data-i18n="chat.welcome">Đã kết nối BizClaw. Nhập tin nhắn để bắt đầu trò chuyện.</div>
+          </div>
+          <div class="typing" id="chat-typing" style="display:none"><span data-i18n="chat.thinking">BizClaw đang suy nghĩ</span><span class="pulse">...</span></div>
+          <div class="chat-input-wrap">
+            <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." data-i18n-placeholder="chat.placeholder" onkeydown="if(event.key==='Enter')sendChat()">
+            <button onclick="sendChat()" data-i18n="chat.send">Gửi ↑</button>
+          </div>
         </div>
       </div>
-      <div id="chat-agent-info" style="display:none;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font-size:12px;color:var(--accent2)"></div>
-      <div class="chat-wrap">
-        <div class="chat-messages" id="chat-messages">
-          <div class="msg msg-system" data-i18n="chat.welcome">Đã kết nối BizClaw. Nhập tin nhắn để bắt đầu trò chuyện.</div>
-        </div>
-        <div class="typing" id="chat-typing" style="display:none"><span data-i18n="chat.thinking">BizClaw đang suy nghĩ</span><span class="pulse">...</span></div>
-        <div class="chat-input-wrap">
-          <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." data-i18n-placeholder="chat.placeholder" onkeydown="if(event.key==='Enter')sendChat()">
-          <button onclick="sendChat()" data-i18n="chat.send">Gửi ↑</button>
+      <!-- Create Group Form (modal overlay) -->
+      <div id="group-create-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+        <div class="card" style="max-width:480px;width:90%;padding:24px">
+          <h3>➕ <span data-i18n="groups.create_new">Tạo nhóm mới</span></h3>
+          <div class="form-row" style="margin-top:12px"><span class="form-label" data-i18n="form.name">Tên</span><input id="new-group-name" placeholder="VD: Dev Team, Marketing Team"></div>
+          <div class="form-row"><span class="form-label" data-i18n="groups.topic">Chủ đề</span><input id="new-group-topic" placeholder="VD: Phân tích và phát triển"></div>
+          <div style="margin:12px 0">
+            <div class="form-label" style="margin-bottom:8px" data-i18n="groups.select_agents">Chọn Agent tham gia:</div>
+            <div id="group-agent-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+            <div style="font-size:11px;color:var(--text2);margin-top:6px" data-i18n="groups.agent_hint">Chưa có agent? Vào trang Đa tác tử để tạo trước.</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn btn-primary" onclick="createGroup()">👥 <span data-i18n="groups.create">Tạo nhóm</span></button>
+            <button class="btn btn-outline" onclick="document.getElementById('group-create-overlay').style.display='none'" data-i18n="form.cancel">Hủy</button>
+          </div>
         </div>
       </div>
     </div>
@@ -584,47 +639,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
-    <!-- ═══ AGENT GROUP CHAT ═══ -->
-    <div id="page-groups" style="display:none">
-      <div class="page-header"><div><h1>👥 <span data-i18n="groups.title">Nhóm Agent</span></h1><div class="sub" data-i18n="groups.subtitle">Tạo nhóm các Agent AI cùng trao đổi và phối hợp — như OpenClaw</div></div>
-        <button class="btn btn-primary" onclick="showCreateGroupForm()">+ <span data-i18n="groups.create">Tạo nhóm</span></button>
-      </div>
-      <div class="stats">
-        <div class="card"><div class="card-label" data-i18n="groups.total">Tổng nhóm</div><div class="card-value accent" id="groups-total">0</div></div>
-        <div class="card"><div class="card-label" data-i18n="groups.agents_count">Agent trong nhóm</div><div class="card-value blue" id="groups-agents">0</div></div>
-        <div class="card"><div class="card-label" data-i18n="groups.conversations">Cuộc hội thoại</div><div class="card-value green" id="groups-convos">0</div></div>
-      </div>
-      <!-- Create Group Form -->
-      <div id="group-create-form" class="card" style="display:none;margin-top:16px">
-        <h3>➕ <span data-i18n="groups.create_new">Tạo nhóm mới</span></h3>
-        <div class="form-row"><span class="form-label" data-i18n="form.name">Tên</span><input id="new-group-name" placeholder="vd: Dev Team, Marketing Team"></div>
-        <div class="form-row"><span class="form-label" data-i18n="groups.topic">Chủ đề</span><input id="new-group-topic" placeholder="vd: Phân tích và phát triển mã nguồn"></div>
-        <div style="margin:12px 0">
-          <div class="form-label" style="margin-bottom:8px" data-i18n="groups.select_agents">Chọn Agent tham gia:</div>
-          <div id="group-agent-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-          <div style="font-size:11px;color:var(--text2);margin-top:6px" data-i18n="groups.agent_hint">Chưa có agent? Vào trang Đa tác tử để tạo trước.</div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn btn-primary" onclick="createGroup()">👥 <span data-i18n="groups.create">Tạo nhóm</span></button>
-          <button class="btn btn-outline" onclick="document.getElementById('group-create-form').style.display='none'" data-i18n="form.cancel">Hủy</button>
-        </div>
-      </div>
-      <!-- Groups List -->
-      <div id="groups-list" class="ch-grid" style="margin-top:16px"></div>
-      <!-- Group Conversation (Full Page View) -->
-      <div id="group-chat-section" class="card" style="display:none;margin-top:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <h2 id="group-chat-title" style="font-size:16px;margin:0">👥 Group Chat</h2>
-          <button class="btn btn-outline btn-sm" onclick="closeGroupChat()">← <span data-i18n="groups.back">Quay lại</span></button>
-        </div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:8px" id="group-chat-members"></div>
-        <div id="group-chat-messages" style="overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:400px;max-height:60vh;padding:12px;background:var(--bg);border-radius:12px;border:1px solid var(--border)"></div>
-        <div style="display:flex;gap:8px;padding-top:12px">
-          <input id="group-chat-input" placeholder="Nhập tin nhắn gửi đến nhóm..." style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:13px;outline:none" onkeydown="if(event.key==='Enter')sendGroupMessage()">
-          <button class="btn btn-primary" onclick="sendGroupMessage()">Gửi ↑</button>
-        </div>
-      </div>
-    </div>
+    <!-- Groups page removed — merged into Chat page -->
 
     <!-- ═══ KNOWLEDGE BASE ═══ -->
     <div id="page-knowledge" style="display:none">
@@ -737,7 +752,7 @@ function showPage(name, pushState) {
   const nav = document.getElementById('nav-' + name);
   if (page) page.style.display = '';
   if (nav) nav.classList.add('active');
-  if (name === 'chat') { document.getElementById('chat-input').focus(); refreshChatAgents(); }
+  if (name === 'chat') { document.getElementById('chat-input').focus(); refreshChatSidebar(); }
   if (name === 'settings') loadSettingsForm();
   if (name === 'channels') renderChannelCards();
   if (name === 'configfile') loadConfigToml();
@@ -745,7 +760,7 @@ function showPage(name, pushState) {
   if (name === 'agents') loadAgents();
   if (name === 'knowledge') loadKnowledgeDocs();
   if (name === 'brain') loadBrainFiles();
-  if (name === 'groups') renderGroups();
+  if (name === 'groups') { navigateTo(null, 'chat'); return; } // redirect groups to chat
 }
 
 // Handle browser back/forward
@@ -758,7 +773,8 @@ window.addEventListener('popstate', (ev) => {
 function getPageFromPath() {
   const path = location.pathname.replace(/^\//, '').replace(/\/$/, '');
   // Map valid page names
-  const validPages = ['dashboard','chat','settings','providers','channels','tools','brain','configfile','mcp','agents','knowledge','groups'];
+  const validPages = ['dashboard','chat','settings','providers','channels','tools','brain','configfile','mcp','agents','knowledge'];
+  if (path === 'groups') return 'chat'; // redirect groups page to chat
   if (!path || path === '' || !validPages.includes(path)) return 'dashboard';
   return path;
 }
@@ -1814,6 +1830,9 @@ async function broadcastMessage() {
 // \u2550\u2550\u2550 AGENT GROUP CHAT \u2550\u2550\u2550
 let _groups = JSON.parse(localStorage.getItem('bizclaw_groups') || '[]');
 let _activeGroupIdx = -1;
+let _chatMode = 'ws'; // 'ws' | 'agent' | 'group'
+let _chatAgentName = ''; // for agent/ws mode
+let _cachedAgents = []; // cached from last fetch
 
 function saveGroups() {
   localStorage.setItem('bizclaw_groups', JSON.stringify(_groups));
@@ -1855,65 +1874,99 @@ function createGroup() {
   });
   saveGroups();
   toast('\ud83d\udc65 Nh\u00f3m "' + name + '" \u0111\u00e3 t\u1ea1o v\u1edbi ' + agents.length + ' agents!');
-  document.getElementById('group-create-form').style.display = 'none';
+  document.getElementById('group-create-overlay').style.display = 'none';
   ['new-group-name', 'new-group-topic'].forEach(id => document.getElementById(id).value = '');
-  renderGroups();
+  refreshChatSidebar();
+  // Auto-select the new group
+  selectGroupChat(_groups.length - 1);
 }
 
-function renderGroups() {
-  document.getElementById('groups-total').textContent = _groups.length;
-  document.getElementById('groups-agents').textContent = _groups.reduce((s, g) => s + g.agents.length, 0);
-  document.getElementById('groups-convos').textContent = _groups.reduce((s, g) => s + g.messages.length, 0);
-  const list = document.getElementById('groups-list');
-  if (_groups.length === 0) {
-    list.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--text2)"><div style="font-size:48px;margin-bottom:12px">\ud83d\udc65</div><div>Ch\u01b0a c\u00f3 nh\u00f3m n\u00e0o. T\u1ea1o nh\u00f3m Agent \u0111\u1ec3 ch\u00fang c\u00f9ng trao \u0111\u1ed5i, ph\u00e2n t\u00edch v\u00e0 ph\u1ed1i h\u1ee3p.</div></div>';
-    return;
+// ═══ CHAT SIDEBAR (2-Column Messenger) ═══
+async function refreshChatSidebar() {
+  const list = document.getElementById('chat-contact-list');
+  if (!list) return;
+  let html = '';
+  // Default Agent
+  html += `<div class="chat-list-item ${_chatMode==='ws'?'active':''}" onclick="selectWSChat()">
+    <div class="chat-list-icon">\ud83e\udd16</div>
+    <div class="chat-list-info"><div class="chat-list-name">Default Agent</div><div class="chat-list-sub">WebSocket \u2022 Direct</div></div>
+    <span class="chat-list-badge" style="background:rgba(52,211,153,.12);color:var(--green)">WS</span>
+  </div>`;
+  // Named Agents
+  try {
+    const res = await authFetch(API + '/api/v1/agents');
+    const data = await res.json();
+    if (data.ok && data.agents && data.agents.length > 0) {
+      html += '<div class="chat-list-sep">\ud83e\udd16 Agents</div>';
+      _cachedAgents = data.agents;
+      data.agents.forEach(a => {
+        const icon = agentIcon(a.role);
+        const isActive = _chatMode==='agent' && _chatAgentName===a.name;
+        html += `<div class="chat-list-item ${isActive?'active':''}" onclick="selectAgentChat('${a.name.replace(/'/g,"\\\'")}','${a.role}')">
+          <div class="chat-list-icon">${icon}</div>
+          <div class="chat-list-info"><div class="chat-list-name">${a.name}</div><div class="chat-list-sub">${a.role} \u2022 ${a.provider}</div></div>
+          <span class="chat-list-badge" style="background:rgba(96,165,250,.12);color:var(--blue)">API</span>
+        </div>`;
+      });
+    }
+  } catch(e) { console.log('sidebar agents error:', e); }
+  // Groups
+  if (_groups.length > 0) {
+    html += '<div class="chat-list-sep">\ud83d\udc65 Nh\u00f3m</div>';
+    _groups.forEach((g, i) => {
+      const isActive = _chatMode==='group' && _activeGroupIdx===i;
+      html += `<div class="chat-list-item ${isActive?'active':''}" onclick="selectGroupChat(${i})">
+        <div class="chat-list-icon">\ud83d\udc65</div>
+        <div class="chat-list-info"><div class="chat-list-name">${g.name}</div><div class="chat-list-sub">${g.agents.join(', ')}</div></div>
+        <span class="chat-list-badge" style="background:rgba(251,146,60,.12);color:var(--orange)">${g.agents.length}</span>
+      </div>`;
+    });
   }
-  list.innerHTML = _groups.map((g, i) => {
-    const agentIcons = g.agents.map(a => '<span style="background:var(--bg2);padding:2px 8px;border-radius:4px;font-size:11px">\ud83e\udd16 ' + a + '</span>').join(' ');
-    return `<div class="ch-card">
-      <div class="ch-header">
-        <span class="ch-name">\ud83d\udc65 ${g.name}</span>
-        <span class="badge badge-blue">${g.agents.length} agents</span>
-      </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">\ud83d\udccb ${g.topic}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${agentIcons}</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">\ud83d\udcac ${g.messages.length} tin nh\u1eafn \u2022 ${new Date(g.created).toLocaleDateString()}</div>
-      <div class="ch-actions">
-        <button class="btn btn-primary btn-sm" onclick="openGroupChat(${i})">\ud83d\udcac M\u1edf nh\u00f3m</button>
-        <button class="btn btn-outline btn-sm" style="color:var(--red)" onclick="deleteGroup(${i})">\ud83d\uddd1\ufe0f</button>
-      </div>
-    </div>`;
-  }).join('');
+  list.innerHTML = html;
 }
 
-function deleteGroup(idx) {
-  if (!confirm('X\u00f3a nh\u00f3m "' + _groups[idx].name + '"?')) return;
-  _groups.splice(idx, 1);
-  saveGroups();
-  renderGroups();
-  toast('\ud83d\uddd1\ufe0f \u0110\u00e3 x\u00f3a nh\u00f3m');
+function selectWSChat() {
+  _chatMode = 'ws';
+  _chatAgentName = '';
+  _activeGroupIdx = -1;
+  document.getElementById('chat-target-icon').textContent = '\ud83e\udd16';
+  document.getElementById('chat-target-name').textContent = 'Default Agent';
+  document.getElementById('chat-target-sub').textContent = 'WebSocket \u2022 Direct';
+  document.getElementById('chat-messages').innerHTML = '<div class="msg msg-system">' + t('chat.welcome') + '</div>';
+  refreshChatSidebar();
+  document.getElementById('chat-input').focus();
 }
 
-function openGroupChat(idx) {
+function selectAgentChat(name, role) {
+  _chatMode = 'agent';
+  _chatAgentName = name;
+  _activeGroupIdx = -1;
+  const icon = agentIcon(role || 'assistant');
+  document.getElementById('chat-target-icon').textContent = icon;
+  document.getElementById('chat-target-name').textContent = name;
+  document.getElementById('chat-target-sub').textContent = (role || 'assistant') + ' \u2022 REST API';
+  document.getElementById('chat-messages').innerHTML = '<div class="msg msg-system">\ud83e\udd16 Chat v\u1edbi agent <b>' + name + '</b> qua REST API</div>';
+  refreshChatSidebar();
+  document.getElementById('chat-input').focus();
+}
+
+function selectGroupChat(idx) {
+  _chatMode = 'group';
+  _chatAgentName = '';
   _activeGroupIdx = idx;
   const g = _groups[idx];
-  document.getElementById('group-chat-title').textContent = '\ud83d\udc65 ' + g.name;
-  document.getElementById('group-chat-members').textContent = '\ud83d\udc64 Th\u00e0nh vi\u00ean: ' + g.agents.join(', ') + ' \u2022 \ud83d\udccb ' + g.topic;
-  document.getElementById('group-chat-section').style.display = '';
-  renderGroupMessages();
-  document.getElementById('group-chat-input').focus();
+  document.getElementById('chat-target-icon').textContent = '\ud83d\udc65';
+  document.getElementById('chat-target-name').textContent = g.name;
+  document.getElementById('chat-target-sub').textContent = g.agents.join(', ') + ' \u2022 ' + g.topic;
+  renderGroupMessagesInChat();
+  refreshChatSidebar();
+  document.getElementById('chat-input').focus();
 }
 
-function closeGroupChat() {
-  document.getElementById('group-chat-section').style.display = 'none';
-  _activeGroupIdx = -1;
-}
-
-function renderGroupMessages() {
+function renderGroupMessagesInChat() {
   if (_activeGroupIdx < 0) return;
   const g = _groups[_activeGroupIdx];
-  const el = document.getElementById('group-chat-messages');
+  const el = document.getElementById('chat-messages');
   if (g.messages.length === 0) {
     el.innerHTML = '<div class="msg msg-system">Nh\u00f3m \u0111\u00e3 s\u1eb5n s\u00e0ng. G\u1eedi tin nh\u1eafn v\u00e0 c\u00e1c agent s\u1ebd c\u00f9ng th\u1ea3o lu\u1eadn!</div>';
     return;
@@ -1921,13 +1974,22 @@ function renderGroupMessages() {
   el.innerHTML = g.messages.map(m => {
     if (m.role === 'user') return `<div class="msg msg-user">${escHtml(m.content)}</div>`;
     if (m.role === 'system') return `<div class="msg msg-system">${escHtml(m.content)}</div>`;
-    const icon = m.agent_role === 'coder' ? '\ud83d\udcbb' : m.agent_role === 'researcher' ? '\ud83d\udd2c' : m.agent_role === 'writer' ? '\u270d\ufe0f' : '\ud83e\udd16';
-    return `<div class="msg msg-bot" style="border-left:3px solid var(--accent)">
+    const icon = agentIcon(m.agent_role || 'assistant');
+    return `<div class="msg msg-agent">
       <div style="font-size:10px;color:var(--accent2);font-weight:600;margin-bottom:4px">${icon} ${m.agent}</div>
       <div>${escHtml(m.content)}</div>
     </div>`;
   }).join('');
   el.scrollTop = el.scrollHeight;
+}
+
+function deleteGroup(idx) {
+  if (!confirm('X\u00f3a nh\u00f3m "' + _groups[idx].name + '"?')) return;
+  _groups.splice(idx, 1);
+  saveGroups();
+  if (_activeGroupIdx === idx) selectWSChat();
+  else refreshChatSidebar();
+  toast('\ud83d\uddd1\ufe0f \u0110\u00e3 x\u00f3a nh\u00f3m');
 }
 
 function escHtml(s) { return (s||'').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>'); }
@@ -2188,7 +2250,14 @@ function handleWS(msg) {
       if (errMsg.includes('Ollama') || errMsg.includes('connection failed')) {
         addMsg('💡 Tip: Make sure Ollama is running: ollama serve', 'system');
       } else if (errMsg.includes('API key') || errMsg.includes('401')) {
-        addMsg('💡 Tip: Go to Settings → API Key and enter your provider API key', 'system');
+        // Check if there's a provider mismatch (agent still using old provider)
+        const currentProvider = (configData && configData.default_provider) || '';
+        const errorProvider = errMsg.match(/provider:\s*(\w+)/);
+        if (errorProvider && errorProvider[1] !== currentProvider) {
+          addMsg('⚠️ Agent đang dùng provider cũ (' + errorProvider[1] + ') nhưng config đã đổi sang ' + currentProvider + '. Vào Providers → bấm "⚡ Kích hoạt" lại provider ' + currentProvider + ' để reload Agent.', 'system');
+        } else {
+          addMsg('💡 Tip: Go to Settings → API Key and enter your provider API key', 'system');
+        }
       } else if (errMsg.includes('Agent') || errMsg.includes('not available')) {
         addMsg('💡 Tip: Go to Settings → choose a valid provider (e.g., Ollama or OpenAI) and save', 'system');
       }
