@@ -6,11 +6,11 @@ BizClaw là nền tảng AI Agent kiến trúc trait-driven, có thể chạy **
 
 [![Rust](https://img.shields.io/badge/Rust-100%25-orange?logo=rust)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-92%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-103%20passing-brightgreen)]()
 [![Crates](https://img.shields.io/badge/crates-14-success)]()
-[![LOC](https://img.shields.io/badge/lines-24853-informational)]()
+[![LOC](https://img.shields.io/badge/lines-26859-informational)]()
 
-<!-- AUTO-GENERATED STATS — updated 2026-02-23 @ 03b4f53 -->
+<!-- AUTO-GENERATED STATS — updated 2026-02-23 @ bb3b0fe -->
 
 ---
 
@@ -31,7 +31,7 @@ BizClaw là nền tảng AI Agent kiến trúc trait-driven, có thể chạy **
 | **💬 18 Channels** | CLI, Zalo Personal, Telegram, Discord, Email (IMAP/SMTP), Webhook |
 | **🏢 Multi-Tenant** | Admin Platform, JWT Auth, Tenant Manager, Pairing Codes, Audit Log |
 | **🌐 Web Dashboard** | Chat UI (VI/EN), WebSocket real-time, LobsterBoard-inspired widgets |
-| **🛠️ 15 Tools** | Shell, File, Web Search, Group Summarizer, Calendar, Document Reader |
+| **🛠️ 16 Tools** | Shell, File, Web Search, Group Summarizer, Calendar, Document Reader |
 | **🔗 MCP** | Model Context Protocol client — kết nối MCP servers bên ngoài |
 | **🔒 Security** | Command allowlist, AES-256, HMAC-SHA256, JWT + bcrypt |
 | **💾 Memory** | SQLite + RAG-style retrieval, keyword search, relevance scoring |
@@ -160,7 +160,7 @@ ollama pull llama3.2      # ~3.8GB
 | `bizclaw-providers` | 3 LLM providers | ✅ |
 | `bizclaw-channels` | 18 channels | ✅ |
 | `bizclaw-memory` | SQLite + RAG retrieval | ✅ |
-| `bizclaw-tools` | 15 native tools | ✅ |
+| `bizclaw-tools` | 16 native tools | ✅ |
 | `bizclaw-mcp` | MCP client (JSON-RPC) | ✅ |
 | `bizclaw-security` | AES-256, Sandbox | ✅ |
 | `bizclaw-agent` | Agent loop + tool calling | ✅ |
@@ -174,13 +174,13 @@ ollama pull llama3.2      # ~3.8GB
 |--------|-------|
 | **Language** | 100% Rust |
 | **Crates** | 14 |
-| **Lines of Code** | ~24853 |
-| **Tests** | 92 passing |
+| **Lines of Code** | ~26859 |
+| **Tests** | 103 passing |
 | **Providers** | 3 |
 | **Channels** | 18 |
-| **Tools** | 15 + MCP |
-| **Binary Size** | bizclaw 12M, platform 7.1M |
-| **Last Updated** | 2026-02-23 (03b4f53) |
+| **Tools** | 16 + MCP |
+| **Binary Size** | bizclaw 12M, platform 7.2M |
+| **Last Updated** | 2026-02-23 (bb3b0fe) |
 
 ---
 
@@ -194,7 +194,7 @@ ollama pull llama3.2      # ~3.8GB
 - **🔗 MCP Support** — Connect any MCP server for unlimited tools
 - **🏢 Multi-Tenant Platform** — Admin dashboard, JWT auth, tenant lifecycle
 - **🌐 Web Dashboard** — Bilingual (VI/EN), real-time WebSocket chat
-- **🛠️ 15 Tools** — Shell, File, Web Search, Calendar, Summarizer, DocReader
+- **🛠️ 16 Tools** — Shell, File, Web Search, Calendar, Summarizer, DocReader
 - **🔒 Security** — AES-256, Command allowlists, sandbox, HMAC-SHA256
 - **💾 RAG Memory** — SQLite with keyword search and relevance scoring
 

@@ -332,10 +332,6 @@ pub async fn start(config: &GatewayConfig) -> anyhow::Result<()> {
     }
     let scheduler = Arc::new(tokio::sync::Mutex::new(scheduler));
 
-    // Spawn scheduler background loop (check every 30 seconds)
-    let sched_clone = scheduler.clone();
-    tokio::spawn(bizclaw_scheduler::engine::spawn_scheduler(sched_clone, 30));
-
     // Initialize Knowledge Base
     let kb_path = config_path
         .parent()
@@ -407,6 +403,27 @@ pub async fn start(config: &GatewayConfig) -> anyhow::Result<()> {
         orchestrator.agent_count()
     );
 
+    // Wrap orchestrator in Arc for shared access
+    let orchestrator_arc = Arc::new(tokio::sync::Mutex::new(orchestrator));
+
+    // Spawn scheduler background loop with Agent integration (check every 30 seconds)
+    let sched_clone = scheduler.clone();
+    let orch_for_sched = orchestrator_arc.clone();
+    tokio::spawn(async move {
+        bizclaw_scheduler::engine::spawn_scheduler_with_agent(
+            sched_clone,
+            move |prompt: String| {
+                let orch = orch_for_sched.clone();
+                async move {
+                    let mut o = orch.lock().await;
+                    o.send(&prompt).await.map_err(|e| e.to_string())
+                }
+            },
+            30,
+        )
+        .await;
+    });
+
     let state = AppState {
         gateway_config: config.clone(),
         full_config: Arc::new(Mutex::new(full_config)),
@@ -426,7 +443,7 @@ pub async fn start(config: &GatewayConfig) -> anyhow::Result<()> {
             None
         },
         agent: Arc::new(tokio::sync::Mutex::new(agent)),
-        orchestrator: Arc::new(tokio::sync::Mutex::new(orchestrator)),
+        orchestrator: orchestrator_arc.clone(),
         scheduler,
         knowledge: Arc::new(tokio::sync::Mutex::new(knowledge)),
         telegram_bots: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
@@ -441,3 +458,4 @@ pub async fn start(config: &GatewayConfig) -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
     Ok(())
 }
+
