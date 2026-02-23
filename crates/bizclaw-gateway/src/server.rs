@@ -121,6 +121,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/brain/files/{filename}", get(super::routes::brain_read_file))
         .route("/api/v1/brain/files/{filename}", axum::routing::put(super::routes::brain_write_file))
         .route("/api/v1/brain/files/{filename}", axum::routing::delete(super::routes::brain_delete_file))
+        // Brain Personalization
+        .route("/api/v1/brain/personalize", post(super::routes::brain_personalize))
         // Health Check
         .route("/api/v1/health", get(super::routes::system_health_check))
         .route("/ws", get(super::ws::ws_handler))

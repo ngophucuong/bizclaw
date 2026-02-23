@@ -52,6 +52,7 @@ pub async fn get_config(
         "default_model": cfg.default_model,
         "default_temperature": cfg.default_temperature,
         "api_key_set": !cfg.api_key.is_empty(),
+        "api_base_url": cfg.api_base_url,
         "identity": {
             "name": cfg.identity.name,
             "persona": cfg.identity.persona,
@@ -176,6 +177,9 @@ pub async fn update_config(
     }
     if let Some(v) = req.get("api_key").and_then(|v| v.as_str()) {
         cfg.api_key = v.to_string();
+    }
+    if let Some(v) = req.get("api_base_url").and_then(|v| v.as_str()) {
+        cfg.api_base_url = v.to_string();
     }
 
     // Update identity
@@ -1010,6 +1014,98 @@ pub async fn brain_delete_file(
         Ok(false) => Json(serde_json::json!({"ok": false, "error": "File not found"})),
         Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
     }
+}
+
+/// Brain Personalization — AI generates SOUL.md, IDENTITY.md, USER.md from user description.
+pub async fn brain_personalize(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let about_user = body["about_user"].as_str().unwrap_or("");
+    let agent_vibe = body["agent_vibe"].as_str().unwrap_or("helpful and professional");
+    let agent_name = body["agent_name"].as_str().unwrap_or("BizClaw Agent");
+    let language = body["language"].as_str().unwrap_or("vi");
+    let tenant = body["tenant"].as_str().unwrap_or("");
+
+    if about_user.is_empty() {
+        return Json(serde_json::json!({"ok": false, "error": "Please describe yourself (about_user)"}));
+    }
+
+    // Build the AI prompt
+    let prompt = format!(
+        r#"You are a configuration assistant. Based on the user's description below, generate personalized brain files for an AI agent.
+
+User describes themselves: "{about_user}"
+Desired agent personality/vibe: "{agent_vibe}"
+Agent name: "{agent_name}"
+Language: "{language}"
+
+Generate EXACTLY these 3 files. Output as JSON with keys "soul", "identity", "user". Each value is the markdown content for that file.
+
+SOUL.md should define the agent's personality, tone, and behavioral rules based on the desired vibe.
+IDENTITY.md should define the agent's name, role, and style.
+USER.md should capture key facts about the user for personalization.
+
+Output ONLY valid JSON, no markdown fences."#
+    );
+
+    // Send to agent
+    let mut agent_lock = state.agent.lock().await;
+    let response = match agent_lock.as_mut() {
+        Some(agent) => match agent.process(&prompt).await {
+            Ok(r) => r,
+            Err(e) => return Json(serde_json::json!({"ok": false, "error": format!("AI error: {e}")})),
+        },
+        None => return Json(serde_json::json!({"ok": false, "error": "Agent not available — configure provider first"})),
+    };
+    drop(agent_lock);
+
+    // Parse AI response as JSON
+    let clean = response.trim().trim_start_matches("```json").trim_start_matches("```").trim_end_matches("```").trim();
+    let parsed: serde_json::Value = match serde_json::from_str(clean) {
+        Ok(v) => v,
+        Err(_) => {
+            // Fallback: try to extract JSON from response
+            let start = clean.find('{').unwrap_or(0);
+            let end = clean.rfind('}').map(|i| i + 1).unwrap_or(clean.len());
+            match serde_json::from_str(&clean[start..end]) {
+                Ok(v) => v,
+                Err(e) => return Json(serde_json::json!({
+                    "ok": false,
+                    "error": format!("Failed to parse AI response: {e}"),
+                    "raw": response,
+                })),
+            }
+        }
+    };
+
+    // Save to workspace
+    let ws = if tenant.is_empty() {
+        bizclaw_memory::brain::BrainWorkspace::default()
+    } else {
+        bizclaw_memory::brain::BrainWorkspace::for_tenant(tenant)
+    };
+    let _ = ws.initialize();
+
+    let mut saved = Vec::new();
+    for (key, filename) in &[("soul", "SOUL.md"), ("identity", "IDENTITY.md"), ("user", "USER.md")] {
+        if let Some(content) = parsed[key].as_str() {
+            if ws.write_file(filename, content).is_ok() {
+                saved.push(*filename);
+            }
+        }
+    }
+
+    tracing::info!("🎨 Brain personalized: {} files saved", saved.len());
+    Json(serde_json::json!({
+        "ok": true,
+        "saved": saved,
+        "files": {
+            "soul": parsed["soul"].as_str().unwrap_or(""),
+            "identity": parsed["identity"].as_str().unwrap_or(""),
+            "user": parsed["user"].as_str().unwrap_or(""),
+        },
+    }))
 }
 
 // ---- System Health Check ----

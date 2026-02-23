@@ -22,7 +22,10 @@ impl OpenAiProvider {
             config.api_key.clone()
         };
 
-        let api_url = if config.default_provider == "openrouter" {
+        // Priority: config.api_base_url > env OPENAI_API_BASE > provider default
+        let api_url = if !config.api_base_url.is_empty() {
+            config.api_base_url.clone()
+        } else if config.default_provider == "openrouter" {
             "https://openrouter.ai/api/v1".into()
         } else {
             std::env::var("OPENAI_API_BASE")

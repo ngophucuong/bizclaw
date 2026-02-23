@@ -168,6 +168,61 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
   </aside>
   <main class="main">
+    <!-- ═══ ONBOARDING WIZARD (first visit) ═══ -->
+    <div id="onboard-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center">
+      <div class="card" style="max-width:560px;width:90%;padding:32px;animation:fadeIn 0.3s">
+        <div id="onboard-step-1">
+          <h2>🎉 Chào mừng đến với BizClaw!</h2>
+          <p style="color:var(--text-dim);margin:8px 0 20px" data-i18n="onboard.welcome_sub">Hãy để AI tạo một trợ lý phù hợp riêng cho bạn. Chỉ mất 30 giây.</p>
+          <div class="form-row"><span class="form-label" data-i18n="onboard.your_name">Tên bạn</span><input id="onboard-name" placeholder="VD: Hoài"></div>
+          <div class="form-row"><span class="form-label" data-i18n="onboard.about_you">Bạn là ai, làm gì?</span><textarea id="onboard-about" rows="3" placeholder="VD: Tôi là founder startup công nghệ, cần AI hỗ trợ quản lý dự án và code"></textarea></div>
+          <div class="form-row"><span class="form-label" data-i18n="onboard.agent_vibe">Phong cách Agent</span>
+            <select id="onboard-vibe">
+              <option value="helpful, professional, concise">🤝 Chuyên nghiệp & Ngắn gọn</option>
+              <option value="friendly, casual, uses emoji">😊 Thân thiện & Thoải mái</option>
+              <option value="creative, inspiring, out-of-the-box">🎨 Sáng tạo & Truyền cảm hứng</option>
+              <option value="strict, precise, technical expert">🔬 Nghiêm túc & Kỹ thuật cao</option>
+              <option value="humorous, witty, smart">😄 Dí dỏm & Thông minh</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="onboardNext()">Tiếp theo →</button>
+          <button class="btn" style="width:100%;margin-top:8px;background:transparent;color:var(--text-dim)" onclick="skipOnboard()">Bỏ qua</button>
+        </div>
+        <div id="onboard-step-2" style="display:none">
+          <h2>⚡ Chọn AI Provider</h2>
+          <p style="color:var(--text-dim);margin:8px 0 20px" data-i18n="onboard.provider_sub">Chọn nguồn AI. Không cần API key? Dùng Ollama hoặc CLIProxyAPI.</p>
+          <div class="form-row"><span class="form-label">Provider</span>
+            <select id="onboard-provider" onchange="onboardProviderChange()">
+              <option value="ollama">🖥️ Ollama (Local, miễn phí)</option>
+              <option value="openai">☁️ OpenAI (GPT-4o)</option>
+              <option value="gemini">☁️ Google Gemini</option>
+              <option value="anthropic">☁️ Anthropic Claude</option>
+              <option value="deepseek">☁️ DeepSeek</option>
+            </select>
+          </div>
+          <div id="onboard-cloud-fields" style="display:none">
+            <div class="form-row"><span class="form-label">Model</span><input id="onboard-model" placeholder="gpt-4o-mini"></div>
+            <div class="form-row"><span class="form-label">API Key</span><input id="onboard-apikey" type="password" placeholder="sk-..."></div>
+            <div class="form-row"><span class="form-label">API Base URL <span style="color:var(--text-dim)">(optional)</span></span><input id="onboard-baseurl" placeholder="http://localhost:8787/v1 (CLIProxyAPI)"></div>
+          </div>
+          <div id="onboard-ollama-info" class="card" style="background:var(--bg);margin-top:12px;padding:12px">
+            <p>📥 <strong>Ollama</strong>: Chạy AI 100% local, không cần internet.</p>
+            <code style="font-size:12px">curl -fsSL https://ollama.ai/install.sh | sh && ollama pull qwen3:0.6b</code>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn" style="flex:1" onclick="document.getElementById('onboard-step-2').style.display='none';document.getElementById('onboard-step-1').style.display=''">← Quay lại</button>
+            <button class="btn btn-primary" style="flex:2" onclick="finishOnboard()">🚀 Hoàn tất & Bắt đầu</button>
+          </div>
+        </div>
+        <div id="onboard-step-done" style="display:none;text-align:center">
+          <div style="font-size:64px;margin:20px 0">🎉</div>
+          <h2 data-i18n="onboard.done_title">Agent đã sẵn sàng!</h2>
+          <p style="color:var(--text-dim)" data-i18n="onboard.done_sub">AI đang tạo tính cách riêng cho agent của bạn...</p>
+          <div id="onboard-progress" style="margin:20px 0;color:var(--accent)">⏳ Đang xử lý...</div>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══ DASHBOARD (LobsterBoard-inspired) ═══ -->
     <div id="page-dashboard">
       <div class="page-header"><div><h1 data-i18n="dash.title">Bảng điều khiển</h1><div class="sub" data-i18n="dash.subtitle">Trung tâm quản lý Agent Gateway</div></div></div>
@@ -260,6 +315,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div id="provider-cloud-fields">
           <div class="form-row"><span class="form-label" data-i18n="set.model">Mô hình</span><input id="set-model" placeholder="gpt-4o-mini"></div>
           <div class="form-row"><span class="form-label" data-i18n="set.apikey">Khóa API</span><input id="set-apikey" type="password" placeholder="sk-..."></div>
+          <div class="form-row"><span class="form-label" data-i18n="set.baseurl">API Base URL</span><input id="set-baseurl" placeholder="http://localhost:8787/v1 (CLIProxyAPI, để trống = mặc định)"></div>
         </div>
         <!-- Ollama fields -->
         <div id="provider-ollama-fields" style="display:none">
@@ -783,6 +839,7 @@ function loadSettingsForm() {
   // Fill model & API key for cloud providers
   document.getElementById('set-model').value = c.default_model || '';
   document.getElementById('set-apikey').value = c.api_key_set ? '••••••••' : '';
+  document.getElementById('set-baseurl').value = c.api_base_url || '';
   // Fill Brain fields
   const brain = c.brain || {};
   document.getElementById('set-brain-path').value = brain.model_path || '';
@@ -854,6 +911,8 @@ async function saveSettings() {
   if (apiKeyVal && !apiKeyVal.startsWith('•') && !['brain','ollama','llamacpp'].includes(provider)) {
     body.api_key = apiKeyVal;
   }
+  const baseUrlVal = document.getElementById('set-baseurl').value.trim();
+  body.api_base_url = baseUrlVal;
   try {
     const res = await authFetch(API + '/api/v1/config/update', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const r = await res.json();
@@ -1101,6 +1160,84 @@ async function toggleMcp(index, enabled) {
     if (r.ok) { toast(enabled ? '✅ Server enabled' : '⏸ Server disabled'); await loadConfig(); loadMcpServers(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
+
+// ═══ ONBOARDING WIZARD ═══
+function checkOnboarding() {
+  if (!localStorage.getItem('bizclaw_onboarded')) {
+    const overlay = document.getElementById('onboard-overlay');
+    overlay.style.display = 'flex';
+  }
+}
+function skipOnboard() {
+  localStorage.setItem('bizclaw_onboarded', '1');
+  document.getElementById('onboard-overlay').style.display = 'none';
+}
+function onboardNext() {
+  document.getElementById('onboard-step-1').style.display = 'none';
+  document.getElementById('onboard-step-2').style.display = '';
+}
+function onboardProviderChange() {
+  const p = document.getElementById('onboard-provider').value;
+  document.getElementById('onboard-cloud-fields').style.display = ['ollama','brain','llamacpp'].includes(p) ? 'none' : '';
+  document.getElementById('onboard-ollama-info').style.display = p === 'ollama' ? '' : 'none';
+}
+async function finishOnboard() {
+  const provider = document.getElementById('onboard-provider').value;
+  const model = document.getElementById('onboard-model')?.value || '';
+  const apiKey = document.getElementById('onboard-apikey')?.value || '';
+  const baseUrl = document.getElementById('onboard-baseurl')?.value || '';
+  const aboutUser = document.getElementById('onboard-about').value;
+  const agentVibe = document.getElementById('onboard-vibe').value;
+  const userName = document.getElementById('onboard-name').value;
+
+  // Show done step
+  document.getElementById('onboard-step-2').style.display = 'none';
+  document.getElementById('onboard-step-done').style.display = '';
+  const progress = document.getElementById('onboard-progress');
+
+  // Step 1: Save provider config
+  progress.innerHTML = '⚙️ Saving provider settings...';
+  const configBody = { default_provider: provider };
+  if (model) configBody.default_model = model;
+  if (apiKey) configBody.api_key = apiKey;
+  configBody.api_base_url = baseUrl;
+  if (provider === 'ollama') {
+    configBody.default_model = 'qwen3:0.6b';
+  }
+  try {
+    await authFetch(API + '/api/v1/config/update', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configBody)});
+    progress.innerHTML = '✅ Provider configured!<br>🎨 Creating your agent personality...';
+  } catch(e) {
+    progress.innerHTML = '⚠️ Config save error, continuing...';
+  }
+
+  // Step 2: Brain personalization (if user entered about)
+  if (aboutUser.trim()) {
+    // Wait for agent to reload with new config
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const res = await authFetch(API + '/api/v1/brain/personalize', {
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({about_user: aboutUser, agent_vibe: agentVibe, agent_name: userName || 'BizClaw Agent', language: currentLang})
+      });
+      const data = await res.json();
+      if (data.ok) {
+        progress.innerHTML = '✅ Agent personality created! (' + (data.saved||[]).join(', ') + ')<br><br><button class="btn btn-primary" onclick="skipOnboard();loadDashboard()">🚀 Start using BizClaw</button>';
+      } else {
+        progress.innerHTML = '⚠️ ' + (data.error||'AI not ready') + '<br><br><button class="btn btn-primary" onclick="skipOnboard();loadDashboard()">Continue anyway →</button>';
+      }
+    } catch(e) {
+      progress.innerHTML = '⚠️ Brain personalization skipped<br><br><button class="btn btn-primary" onclick="skipOnboard();loadDashboard()">Continue →</button>';
+    }
+  } else {
+    progress.innerHTML = '✅ All set!<br><br><button class="btn btn-primary" onclick="skipOnboard();loadDashboard()">🚀 Start using BizClaw</button>';
+  }
+
+  localStorage.setItem('bizclaw_onboarded', '1');
+}
+
+// Show onboarding on page load
+setTimeout(checkOnboarding, 1000);
 
 // ═══ BRAIN WORKSPACE EDITOR ═══
 let _brainEditFile = '';
@@ -1577,7 +1714,7 @@ const I18N = {
     'settings.title':'Cài đặt Agent','settings.subtitle':'Cấu hình AI agent — nhà cung cấp, mô hình, danh tính, bảo mật',
     'settings.save':'💾 Lưu cài đặt',
     'set.provider_section':'Nhà cung cấp AI','set.provider':'Nhà cung cấp','set.model':'Mô hình',
-    'set.apikey':'Khóa API','set.loading_models':'Đang tải mô hình...','set.model_path':'Đường dẫn mô hình',
+    'set.apikey':'Khóa API','set.baseurl':'URL API tùy chỉnh','set.loading_models':'Đang tải mô hình...','set.model_path':'Đường dẫn mô hình',
     'set.scan':'Quét','set.threads':'Luồng xử lý','set.temperature':'Nhiệt độ',
     'set.identity':'Danh tính','set.agent_name':'Tên Agent','set.persona':'Vai trò',
     'set.sysprompt':'Lời nhắc hệ thống','set.memory':'Bộ nhớ','set.backend':'Backend',
@@ -1666,7 +1803,7 @@ const I18N = {
     'settings.title':'Agent Settings','settings.subtitle':'Configure your AI agent — provider, model, identity, security',
     'settings.save':'💾 Save Settings',
     'set.provider_section':'AI Provider','set.provider':'Provider','set.model':'Model',
-    'set.apikey':'API Key','set.loading_models':'Loading models...','set.model_path':'Model Path',
+    'set.apikey':'API Key','set.baseurl':'Custom API Base URL','set.loading_models':'Loading models...','set.model_path':'Model Path',
     'set.scan':'Scan','set.threads':'Threads','set.temperature':'Temperature',
     'set.identity':'Identity','set.agent_name':'Agent Name','set.persona':'Persona',
     'set.sysprompt':'System Prompt','set.memory':'Memory','set.backend':'Backend',
