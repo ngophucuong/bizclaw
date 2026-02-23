@@ -546,36 +546,29 @@ pub async fn update_channel(
             // This prevents channel loss when platform regenerates config.toml
             if let Some(parent) = state.config_path.parent() {
                 let channels_json = serde_json::json!({
+                    // SECURITY: Never write secrets to sync file — only enabled flags + non-sensitive data
                     "telegram": cfg.channel.telegram.as_ref().map(|t| serde_json::json!({
                         "enabled": t.enabled,
-                        "bot_token": t.bot_token,
+                        "bot_token_set": !t.bot_token.is_empty(),
                         "allowed_chat_ids": t.allowed_chat_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(", "),
                     })),
                     "zalo": cfg.channel.zalo.as_ref().map(|z| serde_json::json!({
                         "enabled": z.enabled,
                         "mode": z.mode,
-                        "cookie": z.personal.cookie_path.clone(),
-                        "imei": z.personal.imei,
                     })),
                     "discord": cfg.channel.discord.as_ref().map(|d| serde_json::json!({
                         "enabled": d.enabled,
-                        "bot_token": d.bot_token,
-                        "allowed_channel_ids": d.allowed_channel_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(", "),
+                        "bot_token_set": !d.bot_token.is_empty(),
                     })),
                     "email": cfg.channel.email.as_ref().map(|e| serde_json::json!({
                         "enabled": e.enabled,
                         "smtp_host": e.smtp_host,
                         "smtp_port": e.smtp_port,
                         "email": e.email,
-                        "password": e.password,
-                        "imap_host": e.imap_host,
-                        "imap_port": e.imap_port,
                     })),
                     "whatsapp": cfg.channel.whatsapp.as_ref().map(|w| serde_json::json!({
                         "enabled": w.enabled,
                         "phone_number_id": w.phone_number_id,
-                        "access_token": w.access_token,
-                        "webhook_verify_token": w.webhook_verify_token,
                     })),
                     "webhook": cfg.channel.webhook.as_ref().map(|wh| serde_json::json!({
                         "enabled": wh.enabled,
@@ -612,21 +605,42 @@ fn load_channel_instances(state: &AppState) -> Vec<serde_json::Value> {
     }
 }
 
-/// Save channel instances to JSON file.
+/// Save channel instances to JSON file (with restrictive permissions).
 fn save_channel_instances(state: &AppState, instances: &[serde_json::Value]) {
     let path = channel_instances_path(state);
     let json = serde_json::to_string_pretty(instances).unwrap_or_default();
     std::fs::write(&path, json).ok();
+    // SECURITY: Set file permissions to 0600 (owner-only) since it contains secrets
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
 }
 
-/// List all channel instances.
+/// List all channel instances (secrets masked for frontend display).
 pub async fn list_channel_instances(
     State(state): State<Arc<AppState>>,
 ) -> Json<serde_json::Value> {
     let instances = load_channel_instances(&state);
+    // Mask sensitive fields before sending to frontend
+    let masked: Vec<serde_json::Value> = instances.iter().map(|inst| {
+        let mut masked_inst = inst.clone();
+        if let Some(cfg) = masked_inst.get_mut("config").and_then(|c| c.as_object_mut()) {
+            let sensitive_keys = ["bot_token", "access_token", "webhook_secret", "smtp_pass", "app_token"];
+            for key in &sensitive_keys {
+                if let Some(val) = cfg.get(*key).and_then(|v| v.as_str()) {
+                    if !val.is_empty() {
+                        cfg.insert(key.to_string(), serde_json::json!(mask_secret(val)));
+                    }
+                }
+            }
+        }
+        masked_inst
+    }).collect();
     Json(serde_json::json!({
         "ok": true,
-        "instances": instances,
+        "instances": masked,
     }))
 }
 
@@ -2907,6 +2921,7 @@ mod tests {
             config_path: std::path::PathBuf::from("/tmp/test_config.toml"),
             start_time: std::time::Instant::now(),
             pairing_code: None,
+            auth_failures: Arc::new(tokio::sync::Mutex::new((0, std::time::Instant::now()))),
             agent: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
             orchestrator: std::sync::Arc::new(tokio::sync::Mutex::new(
                 bizclaw_agent::orchestrator::Orchestrator::new(),

@@ -21,6 +21,8 @@ pub struct AppState {
     pub config_path: PathBuf,
     pub start_time: std::time::Instant,
     pub pairing_code: Option<String>,
+    /// Brute-force protection — (failed_count, last_failed_at)
+    pub auth_failures: Arc<tokio::sync::Mutex<(u32, std::time::Instant)>>,
     /// The Agent engine — handles chat with tools, memory, and all providers.
     pub agent: Arc<tokio::sync::Mutex<Option<bizclaw_agent::Agent>>>,
     /// Multi-Agent Orchestrator — manages multiple named agents.
@@ -59,6 +61,22 @@ async fn require_pairing(
         return next.run(req).await;
     };
 
+    // Brute-force protection: lock out after 5 failed attempts for 60s
+    {
+        let failures = state.auth_failures.lock().await;
+        if failures.0 >= 5 && failures.1.elapsed().as_secs() < 60 {
+            tracing::warn!("[security] Auth locked out — {} failed attempts", failures.0);
+            return axum::response::Response::builder()
+                .status(axum::http::StatusCode::TOO_MANY_REQUESTS)
+                .header("Content-Type", "application/json")
+                .header("Retry-After", "60")
+                .body(axum::body::Body::from(
+                    serde_json::json!({"ok": false, "error": "Too many failed attempts. Try again in 60 seconds."}).to_string()
+                ))
+                .unwrap();
+        }
+    }
+
     // Check header first
     let from_header = req
         .headers()
@@ -66,6 +84,9 @@ async fn require_pairing(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
     if from_header == expected {
+        // Reset failures on success
+        let mut failures = state.auth_failures.lock().await;
+        *failures = (0, std::time::Instant::now());
         return next.run(req).await;
     }
 
@@ -80,6 +101,13 @@ async fn require_pairing(
         }
     }
 
+    // Track failed attempt
+    {
+        let mut failures = state.auth_failures.lock().await;
+        failures.0 += 1;
+        failures.1 = std::time::Instant::now();
+        tracing::warn!("[security] Failed auth attempt #{} from request", failures.0);
+    }
     axum::response::Response::builder()
         .status(axum::http::StatusCode::UNAUTHORIZED)
         .header("Content-Type", "application/json")
@@ -499,6 +527,7 @@ pub async fn start(config: &GatewayConfig) -> anyhow::Result<()> {
         } else {
             None
         },
+        auth_failures: Arc::new(tokio::sync::Mutex::new((0, std::time::Instant::now()))),
         agent: Arc::new(tokio::sync::Mutex::new(agent)),
         orchestrator: orchestrator_arc.clone(),
         scheduler,
