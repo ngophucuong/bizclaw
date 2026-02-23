@@ -2,8 +2,8 @@
 //! Based on zca-js v2 protocol: uses dynamic service map URLs from login.
 //! Reference: https://github.com/RFS-ADRENO/zca-js/blob/main/src/apis/getAllGroups.ts
 
-use bizclaw_core::error::{BizClawError, Result};
 use super::models::ZaloGroup;
+use bizclaw_core::error::{BizClawError, Result};
 
 /// Zalo groups client.
 /// Uses dynamic service map URLs from `zpw_service_map_v3`.
@@ -65,9 +65,15 @@ impl ZaloGroups {
     /// Build URL with API version params.
     fn make_url(&self, base: &str) -> String {
         if base.contains('?') {
-            format!("{}&zpw_ver={}&zpw_type={}", base, self.zpw_ver, self.zpw_type)
+            format!(
+                "{}&zpw_ver={}&zpw_type={}",
+                base, self.zpw_ver, self.zpw_type
+            )
         } else {
-            format!("{}?zpw_ver={}&zpw_type={}", base, self.zpw_ver, self.zpw_type)
+            format!(
+                "{}?zpw_ver={}&zpw_type={}",
+                base, self.zpw_ver, self.zpw_type
+            )
         }
     }
 
@@ -76,16 +82,14 @@ impl ZaloGroups {
     pub async fn get_groups(&self, cookie: &str) -> Result<Vec<ZaloGroup>> {
         if self.group_poll_url.is_empty() {
             return Err(BizClawError::Channel(
-                "Group poll service URL not set. Login first to get zpw_service_map_v3.".into()
+                "Group poll service URL not set. Login first to get zpw_service_map_v3.".into(),
             ));
         }
 
-        let url = self.make_url(&format!(
-            "{}/api/group/getlg/v4",
-            self.group_poll_url
-        ));
+        let url = self.make_url(&format!("{}/api/group/getlg/v4", self.group_poll_url));
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("cookie", cookie)
             .header("origin", "https://chat.zalo.me")
@@ -94,21 +98,25 @@ impl ZaloGroups {
             .await
             .map_err(|e| BizClawError::Channel(format!("Get groups failed: {e}")))?;
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("Invalid groups response: {e}")))?;
 
         // zca-js response: { version, gridVerMap: { groupId: version } }
         let groups = body["data"]["gridVerMap"]
             .as_object()
             .map(|map| {
-                map.keys().map(|group_id| {
-                    ZaloGroup {
-                        id: group_id.clone(),
-                        name: String::new(), // Need getGroupInfo for details
-                        member_count: 0,
-                        avatar: None,
-                    }
-                }).collect()
+                map.keys()
+                    .map(|group_id| {
+                        ZaloGroup {
+                            id: group_id.clone(),
+                            name: String::new(), // Need getGroupInfo for details
+                            member_count: 0,
+                            avatar: None,
+                        }
+                    })
+                    .collect()
             })
             .unwrap_or_default();
 
@@ -120,14 +128,11 @@ impl ZaloGroups {
     pub async fn get_group_info(&self, group_id: &str, cookie: &str) -> Result<ZaloGroup> {
         if self.group_url.is_empty() {
             return Err(BizClawError::Channel(
-                "Group service URL not set. Login first to get zpw_service_map_v3.".into()
+                "Group service URL not set. Login first to get zpw_service_map_v3.".into(),
             ));
         }
 
-        let url = self.make_url(&format!(
-            "{}/api/group/getmg-v2",
-            self.group_url
-        ));
+        let url = self.make_url(&format!("{}/api/group/getmg-v2", self.group_url));
 
         // zca-js sends gridVerMap as encrypted params
         let grid_ver_map = serde_json::json!({ group_id: 0 });
@@ -135,7 +140,8 @@ impl ZaloGroups {
             "gridVerMap": grid_ver_map.to_string(),
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("cookie", cookie)
             .header("origin", "https://chat.zalo.me")
@@ -145,7 +151,9 @@ impl ZaloGroups {
             .await
             .map_err(|e| BizClawError::Channel(format!("Get group info failed: {e}")))?;
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("Invalid group response: {e}")))?;
 
         // Response: { gridInfoMap: { groupId: { name, totalMember, ... } } }
@@ -161,5 +169,7 @@ impl ZaloGroups {
 }
 
 impl Default for ZaloGroups {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

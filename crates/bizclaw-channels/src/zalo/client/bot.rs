@@ -5,8 +5,8 @@
 //! Uses Bot Token authentication and bot-api.zaloplatforms.com endpoint.
 //! Supports both Long Polling (getUpdates) and Webhook (setWebhook) modes.
 
-use serde::{Deserialize, Serialize};
 use bizclaw_core::error::{BizClawError, Result};
+use serde::{Deserialize, Serialize};
 
 /// Base URL for Zalo Bot API.
 const BOT_API_BASE: &str = "https://bot-api.zaloplatforms.com";
@@ -110,13 +110,16 @@ impl ZaloBotClient {
     /// API: GET /bot{TOKEN}/getMe
     pub async fn get_me(&self) -> Result<BotInfo> {
         let url = self.api_url("getMe");
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
             .map_err(|e| BizClawError::Channel(format!("getMe failed: {e}")))?;
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("getMe parse error: {e}")))?;
 
         if !body["ok"].as_bool().unwrap_or(false) {
@@ -147,14 +150,17 @@ impl ZaloBotClient {
             "text": text,
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .send()
             .await
             .map_err(|e| BizClawError::Channel(format!("sendMessage failed: {e}")))?;
 
-        let resp: serde_json::Value = response.json().await
+        let resp: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("sendMessage parse error: {e}")))?;
 
         if !resp["ok"].as_bool().unwrap_or(false) {
@@ -191,14 +197,17 @@ impl ZaloBotClient {
             body["caption"] = serde_json::Value::String(cap.to_string());
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .send()
             .await
             .map_err(|e| BizClawError::Channel(format!("sendPhoto failed: {e}")))?;
 
-        let resp: serde_json::Value = response.json().await
+        let resp: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("sendPhoto parse error: {e}")))?;
 
         if !resp["ok"].as_bool().unwrap_or(false) {
@@ -233,14 +242,17 @@ impl ZaloBotClient {
             body["offset"] = serde_json::Value::Number((offset + 1).into());
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .send()
             .await
             .map_err(|e| BizClawError::Channel(format!("getUpdates failed: {e}")))?;
 
-        let resp: serde_json::Value = response.json().await
+        let resp: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("getUpdates parse error: {e}")))?;
 
         if !resp["ok"].as_bool().unwrap_or(false) {
@@ -250,9 +262,8 @@ impl ZaloBotClient {
             )));
         }
 
-        let updates: Vec<BotUpdate> = serde_json::from_value(
-            resp["result"].clone()
-        ).unwrap_or_default();
+        let updates: Vec<BotUpdate> =
+            serde_json::from_value(resp["result"].clone()).unwrap_or_default();
 
         // Track last update ID for polling
         if let Some(last) = updates.last() {
@@ -284,14 +295,17 @@ impl ZaloBotClient {
             body["secret_token"] = serde_json::Value::String(token.to_string());
         }
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .send()
             .await
             .map_err(|e| BizClawError::Channel(format!("setWebhook failed: {e}")))?;
 
-        let resp: serde_json::Value = response.json().await
+        let resp: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("setWebhook parse error: {e}")))?;
 
         if !resp["ok"].as_bool().unwrap_or(false) {
@@ -313,13 +327,16 @@ impl ZaloBotClient {
     pub async fn delete_webhook(&self) -> Result<()> {
         let url = self.api_url("deleteWebhook");
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .send()
             .await
             .map_err(|e| BizClawError::Channel(format!("deleteWebhook failed: {e}")))?;
 
-        let resp: serde_json::Value = response.json().await
+        let resp: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("deleteWebhook parse error: {e}")))?;
 
         if !resp["ok"].as_bool().unwrap_or(false) {
@@ -337,13 +354,16 @@ impl ZaloBotClient {
     pub async fn get_webhook_info(&self) -> Result<WebhookInfo> {
         let url = self.api_url("getWebhookInfo");
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
             .map_err(|e| BizClawError::Channel(format!("getWebhookInfo failed: {e}")))?;
 
-        let resp: serde_json::Value = response.json().await
+        let resp: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("getWebhookInfo parse error: {e}")))?;
 
         if !resp["ok"].as_bool().unwrap_or(false) {
@@ -363,7 +383,11 @@ impl ZaloBotClient {
     /// Get bot token (for display/debug).
     pub fn token_preview(&self) -> String {
         if self.bot_token.len() > 10 {
-            format!("{}...{}", &self.bot_token[..5], &self.bot_token[self.bot_token.len()-5..])
+            format!(
+                "{}...{}",
+                &self.bot_token[..5],
+                &self.bot_token[self.bot_token.len() - 5..]
+            )
         } else {
             "***".into()
         }

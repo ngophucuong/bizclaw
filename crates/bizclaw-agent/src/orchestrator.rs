@@ -7,8 +7,8 @@
 //! - Broadcast messages to all agents
 //! - Agent roles and specializations
 
-use std::collections::HashMap;
 use bizclaw_core::error::Result;
+use std::collections::HashMap;
 
 use crate::Agent;
 
@@ -53,14 +53,17 @@ impl Orchestrator {
     /// Add an agent to the orchestrator.
     pub fn add_agent(&mut self, name: &str, role: &str, description: &str, agent: Agent) {
         let is_first = self.agents.is_empty();
-        self.agents.insert(name.to_string(), NamedAgent {
-            agent,
-            name: name.to_string(),
-            role: role.to_string(),
-            description: description.to_string(),
-            active: true,
-            message_count: 0,
-        });
+        self.agents.insert(
+            name.to_string(),
+            NamedAgent {
+                agent,
+                name: name.to_string(),
+                role: role.to_string(),
+                description: description.to_string(),
+                active: true,
+                message_count: 0,
+            },
+        );
         if is_first {
             self.default_agent = Some(name.to_string());
         }
@@ -84,13 +87,13 @@ impl Orchestrator {
 
     /// Send a message to a specific agent.
     pub async fn send_to(&mut self, agent_name: &str, message: &str) -> Result<String> {
-        let named = self.agents.get_mut(agent_name)
-            .ok_or_else(|| bizclaw_core::error::BizClawError::Config(
-                format!("Agent '{}' not found", agent_name)))?;
-        
+        let named = self.agents.get_mut(agent_name).ok_or_else(|| {
+            bizclaw_core::error::BizClawError::Config(format!("Agent '{}' not found", agent_name))
+        })?;
+
         named.message_count += 1;
         let response = named.agent.process(message).await?;
-        
+
         self.message_log.push(AgentMessage {
             from: "user".to_string(),
             to: agent_name.to_string(),
@@ -104,9 +107,9 @@ impl Orchestrator {
 
     /// Send to the default agent.
     pub async fn send(&mut self, message: &str) -> Result<String> {
-        let default = self.default_agent.clone()
-            .ok_or_else(|| bizclaw_core::error::BizClawError::Config(
-                "No default agent configured".to_string()))?;
+        let default = self.default_agent.clone().ok_or_else(|| {
+            bizclaw_core::error::BizClawError::Config("No default agent configured".to_string())
+        })?;
         self.send_to(&default, message).await
     }
 
@@ -118,10 +121,13 @@ impl Orchestrator {
         task: &str,
     ) -> Result<String> {
         // Process the task with the target agent
-        let to = self.agents.get_mut(to_agent)
-            .ok_or_else(|| bizclaw_core::error::BizClawError::Config(
-                format!("Target agent '{}' not found", to_agent)))?;
-        
+        let to = self.agents.get_mut(to_agent).ok_or_else(|| {
+            bizclaw_core::error::BizClawError::Config(format!(
+                "Target agent '{}' not found",
+                to_agent
+            ))
+        })?;
+
         to.message_count += 1;
         let delegate_prompt = format!(
             "[Delegation from agent '{from_agent}']\n\
@@ -145,7 +151,7 @@ impl Orchestrator {
     pub async fn broadcast(&mut self, message: &str) -> Vec<(String, Result<String>)> {
         let agent_names: Vec<String> = self.agents.keys().cloned().collect();
         let mut results = Vec::new();
-        
+
         for name in agent_names {
             let result = self.send_to(&name, message).await;
             results.push((name, result));
@@ -156,19 +162,22 @@ impl Orchestrator {
 
     /// List all agents with their status.
     pub fn list_agents(&self) -> Vec<serde_json::Value> {
-        self.agents.values().map(|a| {
-            serde_json::json!({
-                "name": a.name,
-                "role": a.role,
-                "description": a.description,
-                "active": a.active,
-                "provider": a.agent.provider_name(),
-                "tools": a.agent.tool_count(),
-                "messages_processed": a.message_count,
-                "conversation_length": a.agent.conversation().len(),
-                "is_default": self.default_agent.as_deref() == Some(&a.name),
+        self.agents
+            .values()
+            .map(|a| {
+                serde_json::json!({
+                    "name": a.name,
+                    "role": a.role,
+                    "description": a.description,
+                    "active": a.active,
+                    "provider": a.agent.provider_name(),
+                    "tools": a.agent.tool_count(),
+                    "messages_processed": a.message_count,
+                    "conversation_length": a.agent.conversation().len(),
+                    "is_default": self.default_agent.as_deref() == Some(&a.name),
+                })
             })
-        }).collect()
+            .collect()
     }
 
     /// Get total agent count.
@@ -183,15 +192,20 @@ impl Orchestrator {
 
     /// Get recent message log (last N entries).
     pub fn recent_messages(&self, limit: usize) -> Vec<serde_json::Value> {
-        self.message_log.iter().rev().take(limit).map(|m| {
-            serde_json::json!({
-                "from": m.from,
-                "to": m.to,
-                "content": &m.content[..m.content.len().min(200)],
-                "response": m.response.as_ref().map(|r| &r[..r.len().min(200)]),
-                "timestamp": m.timestamp.to_rfc3339(),
+        self.message_log
+            .iter()
+            .rev()
+            .take(limit)
+            .map(|m| {
+                serde_json::json!({
+                    "from": m.from,
+                    "to": m.to,
+                    "content": &m.content[..m.content.len().min(200)],
+                    "response": m.response.as_ref().map(|r| &r[..r.len().min(200)]),
+                    "timestamp": m.timestamp.to_rfc3339(),
+                })
             })
-        }).collect()
+            .collect()
     }
 
     /// Get a mutable reference to an agent.
@@ -200,10 +214,19 @@ impl Orchestrator {
     }
 
     /// Update agent metadata (role, description).
-    pub fn update_agent(&mut self, name: &str, role: Option<&str>, description: Option<&str>) -> bool {
+    pub fn update_agent(
+        &mut self,
+        name: &str,
+        role: Option<&str>,
+        description: Option<&str>,
+    ) -> bool {
         if let Some(named) = self.agents.get_mut(name) {
-            if let Some(r) = role { named.role = r.to_string(); }
-            if let Some(d) = description { named.description = d.to_string(); }
+            if let Some(r) = role {
+                named.role = r.to_string();
+            }
+            if let Some(d) = description {
+                named.description = d.to_string();
+            }
             true
         } else {
             false
@@ -237,7 +260,12 @@ mod tests {
     #[test]
     fn test_add_agent() {
         let mut orch = Orchestrator::new();
-        orch.add_agent("researcher", "researcher", "Research agent", make_test_agent());
+        orch.add_agent(
+            "researcher",
+            "researcher",
+            "Research agent",
+            make_test_agent(),
+        );
         assert_eq!(orch.agent_count(), 1);
     }
 
@@ -246,7 +274,7 @@ mod tests {
         let mut orch = Orchestrator::new();
         orch.add_agent("first", "assistant", "First agent", make_test_agent());
         assert_eq!(orch.default_agent_name(), Some("first"));
-        
+
         // Second agent should not override default
         orch.add_agent("second", "coder", "Second agent", make_test_agent());
         assert_eq!(orch.default_agent_name(), Some("first"));
@@ -257,11 +285,11 @@ mod tests {
         let mut orch = Orchestrator::new();
         orch.add_agent("temp", "assistant", "Temp", make_test_agent());
         assert_eq!(orch.agent_count(), 1);
-        
+
         let removed = orch.remove_agent("temp");
         assert!(removed);
         assert_eq!(orch.agent_count(), 0);
-        
+
         // Removing nonexistent returns false
         let removed2 = orch.remove_agent("nonexistent");
         assert!(!removed2);
@@ -273,7 +301,7 @@ mod tests {
         orch.add_agent("a", "assistant", "A", make_test_agent());
         orch.add_agent("b", "coder", "B", make_test_agent());
         assert_eq!(orch.default_agent_name(), Some("a"));
-        
+
         orch.remove_agent("a");
         // Default should reassign to remaining agent
         assert!(orch.default_agent_name().is_some());
@@ -284,10 +312,10 @@ mod tests {
         let mut orch = Orchestrator::new();
         orch.add_agent("a", "assistant", "A", make_test_agent());
         orch.add_agent("b", "coder", "B", make_test_agent());
-        
+
         orch.set_default("b");
         assert_eq!(orch.default_agent_name(), Some("b"));
-        
+
         // Setting nonexistent does nothing
         orch.set_default("nonexistent");
         assert_eq!(orch.default_agent_name(), Some("b"));
@@ -297,10 +325,10 @@ mod tests {
     fn test_update_agent() {
         let mut orch = Orchestrator::new();
         orch.add_agent("x", "assistant", "Original", make_test_agent());
-        
+
         let updated = orch.update_agent("x", Some("coder"), Some("Updated desc"));
         assert!(updated);
-        
+
         let agents = orch.list_agents();
         let agent = &agents[0];
         assert_eq!(agent["role"], "coder");
@@ -319,10 +347,10 @@ mod tests {
         let mut orch = Orchestrator::new();
         orch.add_agent("alpha", "researcher", "Alpha agent", make_test_agent());
         orch.add_agent("beta", "writer", "Beta agent", make_test_agent());
-        
+
         let agents = orch.list_agents();
         assert_eq!(agents.len(), 2);
-        
+
         // Check fields exist
         for a in &agents {
             assert!(a["name"].is_string());
@@ -356,7 +384,7 @@ mod tests {
     fn test_get_agent_mut() {
         let mut orch = Orchestrator::new();
         orch.add_agent("mutable", "assistant", "M", make_test_agent());
-        
+
         assert!(orch.get_agent_mut("mutable").is_some());
         assert!(orch.get_agent_mut("nonexistent").is_none());
     }

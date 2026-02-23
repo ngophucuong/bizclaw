@@ -2,8 +2,8 @@
 //! Wraps the client sub-modules into the Channel trait.
 
 pub mod client;
-pub mod personal;
 pub mod official;
+pub mod personal;
 
 use async_trait::async_trait;
 use bizclaw_core::config::ZaloChannelConfig;
@@ -13,7 +13,7 @@ use bizclaw_core::types::{IncomingMessage, OutgoingMessage};
 use tokio_stream::Stream;
 
 use self::client::auth::{ZaloAuth, ZaloCredentials};
-use self::client::messaging::{ZaloMessaging, ThreadType as ZaloThreadType};
+use self::client::messaging::{ThreadType as ZaloThreadType, ZaloMessaging};
 use self::client::session::SessionManager;
 
 /// Zalo channel implementation — routes to Personal or OA mode.
@@ -33,7 +33,8 @@ impl ZaloChannel {
             cookie: None,
             phone: None,
             user_agent: if config.personal.user_agent.is_empty() {
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0".into()
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+                    .into()
             } else {
                 config.personal.user_agent.clone()
             },
@@ -60,16 +61,16 @@ impl ZaloChannel {
         }
 
         // Set login credentials
-        self.messaging.set_login_info(
-            &login_data.uid,
-            login_data.zpw_enk.as_deref(),
-        );
+        self.messaging
+            .set_login_info(&login_data.uid, login_data.zpw_enk.as_deref());
 
-        self.session.set_session(
-            login_data.uid.clone(),
-            login_data.zpw_enk,
-            login_data.zpw_key,
-        ).await;
+        self.session
+            .set_session(
+                login_data.uid.clone(),
+                login_data.zpw_enk,
+                login_data.zpw_key,
+            )
+            .await;
         self.cookie = Some(cookie.to_string());
         tracing::info!("Zalo logged in: uid={}", login_data.uid);
         Ok(())
@@ -83,7 +84,9 @@ impl ZaloChannel {
 
 #[async_trait]
 impl Channel for ZaloChannel {
-    fn name(&self) -> &str { "zalo" }
+    fn name(&self) -> &str {
+        "zalo"
+    }
 
     async fn connect(&mut self) -> Result<()> {
         tracing::info!("Zalo channel: connecting in {} mode...", self.config.mode);
@@ -110,9 +113,10 @@ impl Channel for ZaloChannel {
                 tracing::info!("Zalo OA: connected (official API requires Zalo OA token)");
             }
             _ => {
-                return Err(BizClawError::Config(
-                    format!("Unknown Zalo mode: {}", self.config.mode)
-                ));
+                return Err(BizClawError::Config(format!(
+                    "Unknown Zalo mode: {}",
+                    self.config.mode
+                )));
             }
         }
         Ok(())
@@ -125,7 +129,9 @@ impl Channel for ZaloChannel {
         Ok(())
     }
 
-    fn is_connected(&self) -> bool { self.connected }
+    fn is_connected(&self) -> bool {
+        self.connected
+    }
 
     async fn listen(&self) -> Result<Box<dyn Stream<Item = IncomingMessage> + Send + Unpin>> {
         // Production note: Zalo WebSocket requires zpw_enk encryption key
@@ -136,22 +142,29 @@ impl Channel for ZaloChannel {
     }
 
     async fn send(&self, message: OutgoingMessage) -> Result<()> {
-        let cookie = self.cookie.as_ref()
+        let cookie = self
+            .cookie
+            .as_ref()
             .ok_or_else(|| BizClawError::Channel("Zalo not logged in".into()))?;
 
-        self.messaging.send_text(
-            &message.thread_id,
-            ZaloThreadType::User,
-            &message.content,
-            cookie,
-        ).await?;
+        self.messaging
+            .send_text(
+                &message.thread_id,
+                ZaloThreadType::User,
+                &message.content,
+                cookie,
+            )
+            .await?;
 
         tracing::debug!("Zalo: message sent to {}", message.thread_id);
         Ok(())
     }
 
     async fn send_typing(&self, thread_id: &str) -> Result<()> {
-        tracing::debug!("Zalo: typing indicator to {} (not supported by API)", thread_id);
+        tracing::debug!(
+            "Zalo: typing indicator to {} (not supported by API)",
+            thread_id
+        );
         Ok(())
     }
 }
@@ -166,7 +179,8 @@ impl ZaloChannel {
 
         // Expand ~ to home dir
         let expanded = if path.starts_with("~/") {
-            std::env::var("HOME").ok()
+            std::env::var("HOME")
+                .ok()
                 .map(|h| std::path::PathBuf::from(h).join(&path[2..]))
                 .unwrap_or_else(|| std::path::PathBuf::from(path))
         } else {

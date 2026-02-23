@@ -1,8 +1,8 @@
 //! Zalo messaging — send/receive text, images, stickers, files.
 //! Based on zca-js v2 protocol: uses dynamic service map URLs + encrypted params.
 
-use serde::{Deserialize, Serialize};
 use bizclaw_core::error::{BizClawError, Result};
+use serde::{Deserialize, Serialize};
 
 /// Message types supported by Zalo.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,8 +79,13 @@ impl ZaloServiceMap {
     /// Parse from zpw_service_map_v3 JSON value (as returned by login).
     pub fn from_login_data(map: &serde_json::Value) -> Self {
         let get_urls = |key: &str| -> Vec<String> {
-            map[key].as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            map[key]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default()
         };
         Self {
@@ -99,7 +104,8 @@ impl ZaloServiceMap {
     /// Get the best chat URL (for User thread messaging).
     /// zca-js: api.zpwServiceMap.chat[0]
     pub fn chat_url(&self) -> &str {
-        self.chat.first()
+        self.chat
+            .first()
             .map(|s| s.as_str())
             .unwrap_or("https://wpa.chat.zalo.me")
     }
@@ -107,7 +113,8 @@ impl ZaloServiceMap {
     /// Get the best group URL (for Group thread messaging + management).
     /// zca-js: api.zpwServiceMap.group[0]
     pub fn group_url(&self) -> &str {
-        self.group.first()
+        self.group
+            .first()
             .map(|s| s.as_str())
             .unwrap_or("https://wpa.chat.zalo.me")
     }
@@ -115,7 +122,8 @@ impl ZaloServiceMap {
     /// Get the best group_poll URL (for getAllGroups).
     /// zca-js: api.zpwServiceMap.group_poll[0]
     pub fn group_poll_url(&self) -> &str {
-        self.group_poll.first()
+        self.group_poll
+            .first()
             .map(|s| s.as_str())
             .unwrap_or("https://wpa.chat.zalo.me")
     }
@@ -123,7 +131,8 @@ impl ZaloServiceMap {
     /// Get the best reaction URL.
     /// zca-js: api.zpwServiceMap.reaction[0]
     pub fn reaction_url(&self) -> &str {
-        self.reaction.first()
+        self.reaction
+            .first()
             .map(|s| s.as_str())
             .unwrap_or("https://wpa.chat.zalo.me")
     }
@@ -131,7 +140,8 @@ impl ZaloServiceMap {
     /// Get the best profile URL (for friends list, user info).
     /// zca-js: api.zpwServiceMap.profile[0]
     pub fn profile_url(&self) -> &str {
-        self.profile.first()
+        self.profile
+            .first()
             .map(|s| s.as_str())
             .unwrap_or("https://wpa.chat.zalo.me")
     }
@@ -139,7 +149,8 @@ impl ZaloServiceMap {
     /// Get the best friend URL (for friend requests).
     /// zca-js: api.zpwServiceMap.friend[0]
     pub fn friend_url(&self) -> &str {
-        self.friend.first()
+        self.friend
+            .first()
             .map(|s| s.as_str())
             .unwrap_or("https://wpa.chat.zalo.me")
     }
@@ -191,9 +202,15 @@ impl ZaloMessaging {
     /// Add API version query params to a URL.
     fn add_api_params(&self, base: &str) -> String {
         if base.contains('?') {
-            format!("{}&zpw_ver={}&zpw_type={}", base, self.zpw_ver, self.zpw_type)
+            format!(
+                "{}&zpw_ver={}&zpw_type={}",
+                base, self.zpw_ver, self.zpw_type
+            )
         } else {
-            format!("{}?zpw_ver={}&zpw_type={}", base, self.zpw_ver, self.zpw_type)
+            format!(
+                "{}?zpw_ver={}&zpw_type={}",
+                base, self.zpw_ver, self.zpw_type
+            )
         }
     }
 
@@ -223,7 +240,8 @@ impl ZaloMessaging {
             "clientId": generate_client_id(),
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&endpoint)
             .header("cookie", cookie)
             .header("origin", "https://chat.zalo.me")
@@ -233,7 +251,9 @@ impl ZaloMessaging {
             .await
             .map_err(|e| BizClawError::Channel(format!("Send message failed: {e}")))?;
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("Invalid send response: {e}")))?;
 
         let error_code = body["error_code"].as_i64().unwrap_or(-1);
@@ -268,7 +288,10 @@ impl ZaloMessaging {
             "rType": reaction,
         });
 
-        let endpoint = self.add_api_params(&format!("{}/api/message/reaction", self.service_map.reaction_url()));
+        let endpoint = self.add_api_params(&format!(
+            "{}/api/message/reaction",
+            self.service_map.reaction_url()
+        ));
 
         self.client
             .post(&endpoint)
@@ -282,18 +305,14 @@ impl ZaloMessaging {
     }
 
     /// Undo (recall) a message.
-    pub async fn undo_message(
-        &self,
-        msg_id: &str,
-        thread_id: &str,
-        cookie: &str,
-    ) -> Result<()> {
+    pub async fn undo_message(&self, msg_id: &str, thread_id: &str, cookie: &str) -> Result<()> {
         let params = serde_json::json!({
             "msgId": msg_id,
             "toid": thread_id,
         });
 
-        let endpoint = self.add_api_params(&format!("{}/api/message/undo", self.service_map.chat_url()));
+        let endpoint =
+            self.add_api_params(&format!("{}/api/message/undo", self.service_map.chat_url()));
 
         self.client
             .post(&endpoint)
@@ -319,7 +338,9 @@ impl ZaloMessaging {
 }
 
 impl Default for ZaloMessaging {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Generate a client-side message ID.

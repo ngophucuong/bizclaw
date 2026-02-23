@@ -2,8 +2,8 @@
 //! Based on zca-js v2 protocol: uses dynamic service map URLs from login.
 //! Reference: https://github.com/RFS-ADRENO/zca-js/blob/main/src/apis/getAllFriends.ts
 
-use bizclaw_core::error::{BizClawError, Result};
 use super::models::ZaloUser;
+use bizclaw_core::error::{BizClawError, Result};
 
 /// Zalo friends/contacts client.
 /// Uses dynamic service map URL from `zpw_service_map_v3.profile[0]`.
@@ -65,9 +65,15 @@ impl ZaloFriends {
     /// Build URL with API version params.
     fn make_url(&self, base: &str) -> String {
         if base.contains('?') {
-            format!("{}&zpw_ver={}&zpw_type={}", base, self.zpw_ver, self.zpw_type)
+            format!(
+                "{}&zpw_ver={}&zpw_type={}",
+                base, self.zpw_ver, self.zpw_type
+            )
         } else {
-            format!("{}?zpw_ver={}&zpw_type={}", base, self.zpw_ver, self.zpw_type)
+            format!(
+                "{}?zpw_ver={}&zpw_type={}",
+                base, self.zpw_ver, self.zpw_type
+            )
         }
     }
 
@@ -76,7 +82,7 @@ impl ZaloFriends {
     pub async fn get_friends(&self, cookie: &str) -> Result<Vec<ZaloUser>> {
         if self.profile_url.is_empty() {
             return Err(BizClawError::Channel(
-                "Profile service URL not set. Login first to get zpw_service_map_v3.".into()
+                "Profile service URL not set. Login first to get zpw_service_map_v3.".into(),
             ));
         }
 
@@ -85,7 +91,8 @@ impl ZaloFriends {
             self.profile_url
         ));
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("cookie", cookie)
             .header("origin", "https://chat.zalo.me")
@@ -94,25 +101,31 @@ impl ZaloFriends {
             .await
             .map_err(|e| BizClawError::Channel(format!("Get friends failed: {e}")))?;
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("Invalid friends response: {e}")))?;
 
         let friends = body["data"]
             .as_array()
             .map(|arr| {
-                arr.iter().filter_map(|f| {
-                    Some(ZaloUser {
-                        id: f["userId"].as_str()
-                            .or_else(|| f["uid"].as_str())?.into(),
-                        display_name: f["displayName"].as_str()
-                            .or_else(|| f["zaloName"].as_str())
-                            .unwrap_or("").into(),
-                        avatar: f["avatar"].as_str().map(String::from),
-                        phone: f["phoneNumber"].as_str()
-                            .or_else(|| f["phone"].as_str())
-                            .map(String::from),
+                arr.iter()
+                    .filter_map(|f| {
+                        Some(ZaloUser {
+                            id: f["userId"].as_str().or_else(|| f["uid"].as_str())?.into(),
+                            display_name: f["displayName"]
+                                .as_str()
+                                .or_else(|| f["zaloName"].as_str())
+                                .unwrap_or("")
+                                .into(),
+                            avatar: f["avatar"].as_str().map(String::from),
+                            phone: f["phoneNumber"]
+                                .as_str()
+                                .or_else(|| f["phone"].as_str())
+                                .map(String::from),
+                        })
                     })
-                }).collect()
+                    .collect()
             })
             .unwrap_or_default();
 
@@ -124,7 +137,7 @@ impl ZaloFriends {
     pub async fn get_user_info(&self, user_id: &str, cookie: &str) -> Result<ZaloUser> {
         if self.profile_url.is_empty() {
             return Err(BizClawError::Channel(
-                "Profile service URL not set. Login first to get zpw_service_map_v3.".into()
+                "Profile service URL not set. Login first to get zpw_service_map_v3.".into(),
             ));
         }
 
@@ -133,7 +146,8 @@ impl ZaloFriends {
             self.profile_url
         ));
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .query(&[("fuid", user_id)])
             .header("cookie", cookie)
@@ -143,18 +157,25 @@ impl ZaloFriends {
             .await
             .map_err(|e| BizClawError::Channel(format!("Get user info failed: {e}")))?;
 
-        let body: serde_json::Value = response.json().await
+        let body: serde_json::Value = response
+            .json()
+            .await
             .map_err(|e| BizClawError::Channel(format!("Invalid user response: {e}")))?;
 
         Ok(ZaloUser {
-            id: body["data"]["userId"].as_str()
+            id: body["data"]["userId"]
+                .as_str()
                 .or_else(|| body["data"]["uid"].as_str())
-                .unwrap_or(user_id).into(),
-            display_name: body["data"]["displayName"].as_str()
+                .unwrap_or(user_id)
+                .into(),
+            display_name: body["data"]["displayName"]
+                .as_str()
                 .or_else(|| body["data"]["zaloName"].as_str())
-                .unwrap_or("Unknown").into(),
+                .unwrap_or("Unknown")
+                .into(),
             avatar: body["data"]["avatar"].as_str().map(String::from),
-            phone: body["data"]["phoneNumber"].as_str()
+            phone: body["data"]["phoneNumber"]
+                .as_str()
                 .or_else(|| body["data"]["phone"].as_str())
                 .map(String::from),
         })
@@ -170,14 +191,11 @@ impl ZaloFriends {
     ) -> Result<()> {
         if self.friend_url.is_empty() {
             return Err(BizClawError::Channel(
-                "Friend service URL not set. Login first.".into()
+                "Friend service URL not set. Login first.".into(),
             ));
         }
 
-        let url = self.make_url(&format!(
-            "{}/api/friend/sendreq",
-            self.friend_url
-        ));
+        let url = self.make_url(&format!("{}/api/friend/sendreq", self.friend_url));
 
         let params = serde_json::json!({
             "toid": user_id,
@@ -200,5 +218,7 @@ impl ZaloFriends {
 }
 
 impl Default for ZaloFriends {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
