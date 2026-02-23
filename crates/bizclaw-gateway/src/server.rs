@@ -407,9 +407,12 @@ pub async fn start(config: &GatewayConfig) -> anyhow::Result<()> {
             let mut agent_cfg = full_config.clone();
             if !agent_rec.provider.is_empty() {
                 agent_cfg.default_provider = agent_rec.provider.clone();
+                // CRITICAL: sync llm.provider — create_provider() reads this FIRST
+                agent_cfg.llm.provider = agent_rec.provider.clone();
             }
             if !agent_rec.model.is_empty() {
                 agent_cfg.default_model = agent_rec.model.clone();
+                agent_cfg.llm.model = agent_rec.model.clone();
             }
             if !agent_rec.system_prompt.is_empty() {
                 agent_cfg.identity.system_prompt = agent_rec.system_prompt.clone();
@@ -418,15 +421,21 @@ pub async fn start(config: &GatewayConfig) -> anyhow::Result<()> {
 
             // Inject per-provider API key and base_url from DB
             // This enables agents to use different providers (e.g. Ollama, DeepSeek)
+            // Must set BOTH legacy fields AND llm.* fields
             let provider_name = &agent_cfg.default_provider;
             if let Ok(db_provider) = gateway_db.get_provider(provider_name) {
                 if !db_provider.api_key.is_empty() {
-                    agent_cfg.api_key = db_provider.api_key;
+                    agent_cfg.api_key = db_provider.api_key.clone();
+                    agent_cfg.llm.api_key = db_provider.api_key;
                 }
-                if !db_provider.base_url.is_empty() && agent_cfg.api_base_url.is_empty() {
-                    if db_provider.provider_type == "local" || db_provider.provider_type == "proxy" {
-                        agent_cfg.api_base_url = db_provider.base_url;
+                if db_provider.provider_type == "local" || db_provider.provider_type == "proxy" {
+                    if !db_provider.base_url.is_empty() {
+                        agent_cfg.api_base_url = db_provider.base_url.clone();
+                        agent_cfg.llm.endpoint = db_provider.base_url;
                     }
+                } else if !db_provider.base_url.is_empty() && agent_cfg.api_base_url.is_empty() {
+                    agent_cfg.api_base_url = db_provider.base_url.clone();
+                    agent_cfg.llm.endpoint = db_provider.base_url;
                 }
             }
 

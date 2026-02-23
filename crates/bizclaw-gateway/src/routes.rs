@@ -20,6 +20,11 @@ fn mask_secret(s: &str) -> String {
 /// Enrich agent config with per-provider API key and base_url from the gateway DB.
 /// This is the critical function that enables multi-provider support — each agent
 /// gets the credentials specific to its chosen provider, not the global default.
+///
+/// IMPORTANT: Must sync BOTH config systems:
+///   - Legacy: config.api_key, config.api_base_url, config.default_provider
+///   - LLM section: config.llm.provider, config.llm.api_key, config.llm.endpoint
+/// create_provider() reads from llm.* FIRST, so we must set both.
 fn apply_provider_config_from_db(
     db: &GatewayDb,
     config: &mut bizclaw_core::config::BizClawConfig,
@@ -28,20 +33,28 @@ fn apply_provider_config_from_db(
     if provider_name.is_empty() {
         return;
     }
+
+    // CRITICAL: Sync llm.provider with default_provider so create_provider() uses the right one
+    // create_provider() checks llm.provider FIRST, and LlmConfig::default() is "openai"
+    config.llm.provider = provider_name.clone();
+
     if let Ok(db_provider) = db.get_provider(provider_name) {
         // Use provider-specific API key if it has one, overriding global config
         if !db_provider.api_key.is_empty() {
-            config.api_key = db_provider.api_key;
+            config.api_key = db_provider.api_key.clone();
+            config.llm.api_key = db_provider.api_key; // Also sync to LLM section
         }
         // For local/proxy providers, ALWAYS use their registered URL
         // (Ollama, llama.cpp, CLIProxy need their specific endpoints)
         if db_provider.provider_type == "local" || db_provider.provider_type == "proxy" {
             if !db_provider.base_url.is_empty() {
-                config.api_base_url = db_provider.base_url;
+                config.api_base_url = db_provider.base_url.clone();
+                config.llm.endpoint = db_provider.base_url; // Also sync to LLM section
             }
         } else if !db_provider.base_url.is_empty() && config.api_base_url.is_empty() {
             // For cloud providers, only set if user hasn't explicitly configured one
-            config.api_base_url = db_provider.base_url;
+            config.api_base_url = db_provider.base_url.clone();
+            config.llm.endpoint = db_provider.base_url;
         }
     }
 }
@@ -199,21 +212,27 @@ pub async fn update_config(
 ) -> Json<serde_json::Value> {
     let mut cfg = state.full_config.lock().unwrap();
 
-    // Update top-level fields
+    // Update top-level fields + sync to LLM section
+    // CRITICAL: create_provider() reads llm.* FIRST, so both must be in sync
     if let Some(v) = req.get("default_provider").and_then(|v| v.as_str()) {
         cfg.default_provider = v.to_string();
+        cfg.llm.provider = v.to_string(); // sync
     }
     if let Some(v) = req.get("default_model").and_then(|v| v.as_str()) {
         cfg.default_model = v.to_string();
+        cfg.llm.model = v.to_string(); // sync
     }
     if let Some(v) = req.get("default_temperature").and_then(|v| v.as_f64()) {
         cfg.default_temperature = v as f32;
+        cfg.llm.temperature = v as f32; // sync
     }
     if let Some(v) = req.get("api_key").and_then(|v| v.as_str()) {
         cfg.api_key = v.to_string();
+        cfg.llm.api_key = v.to_string(); // sync
     }
     if let Some(v) = req.get("api_base_url").and_then(|v| v.as_str()) {
         cfg.api_base_url = v.to_string();
+        cfg.llm.endpoint = v.to_string(); // sync
     }
 
     // Update identity
@@ -1450,11 +1469,13 @@ pub async fn create_agent(
     if let Some(provider) = body["provider"].as_str() {
         if !provider.is_empty() {
             agent_config.default_provider = provider.to_string();
+            agent_config.llm.provider = provider.to_string(); // sync
         }
     }
     if let Some(model) = body["model"].as_str() {
         if !model.is_empty() {
             agent_config.default_model = model.to_string();
+            agent_config.llm.model = model.to_string(); // sync
         }
     }
     if let Some(persona) = body["persona"].as_str() {
@@ -1583,10 +1604,16 @@ pub async fn update_agent(
         } // lock released before potentially slow await
 
         if let Some(p) = provider {
-            if !p.is_empty() { agent_config.default_provider = p.to_string(); }
+            if !p.is_empty() {
+                agent_config.default_provider = p.to_string();
+                agent_config.llm.provider = p.to_string(); // sync
+            }
         }
         if let Some(m) = model {
-            if !m.is_empty() { agent_config.default_model = m.to_string(); }
+            if !m.is_empty() {
+                agent_config.default_model = m.to_string();
+                agent_config.llm.model = m.to_string(); // sync
+            }
         }
         if let Some(sp) = system_prompt {
             agent_config.identity.system_prompt = sp.to_string();
