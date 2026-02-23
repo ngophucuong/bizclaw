@@ -129,8 +129,6 @@ pub fn build_router_from_arc(shared: Arc<AppState>) -> Router {
         .route("/api/v1/channel-instances", get(super::routes::list_channel_instances))
         .route("/api/v1/channel-instances", post(super::routes::save_channel_instance))
         .route("/api/v1/channel-instances/{id}", axum::routing::delete(super::routes::delete_channel_instance))
-        // Webhook inbound — receives external messages, routes to bound agent
-        .route("/api/v1/webhook/inbound", post(super::routes::webhook_inbound))
         .route("/api/v1/ollama/models", get(super::routes::ollama_models))
         .route(
             "/api/v1/brain/models",
@@ -261,11 +259,8 @@ pub fn build_router_from_arc(shared: Arc<AppState>) -> Router {
             "/api/v1/webhook/whatsapp",
             get(super::routes::whatsapp_webhook_verify).post(super::routes::whatsapp_webhook),
         )
-        // Generic webhook inbound — public, auth via HMAC signature
-        .route(
-            "/api/v1/webhook/inbound",
-            post(super::routes::webhook_inbound),
-        );
+        // Webhook inbound — public, auth via HMAC signature in header
+        .route("/api/v1/webhook/inbound", post(super::routes::webhook_inbound));
 
     // SPA fallback — serve dashboard HTML for all frontend routes
     // so that /dashboard, /chat, /settings etc. all work with path-based routing
