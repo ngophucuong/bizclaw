@@ -176,6 +176,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <a href="/agents" onclick="navigateTo(event,'agents')" id="nav-agents">🤖 <span data-i18n="nav.agents">AI Agent</span></a>
       <a href="/gallery" onclick="navigateTo(event,'gallery')" id="nav-gallery">📦 <span data-i18n="nav.gallery">Gallery</span></a>
       <a href="/knowledge" onclick="navigateTo(event,'knowledge')" id="nav-knowledge">📚 <span data-i18n="nav.knowledge">Kho tri thức</span></a>
+      <a href="/scheduler" onclick="navigateTo(event,'scheduler')" id="nav-scheduler">⏰ <span data-i18n="nav.scheduler">Lịch trình</span></a>
       <div class="nav-sep"></div>
       <a href="/brain" onclick="navigateTo(event,'brain')" id="nav-brain">🧠 <span data-i18n="nav.brain">Brain Engine</span></a>
       <a href="/configfile" onclick="navigateTo(event,'configfile')" id="nav-configfile">📄 <span data-i18n="nav.config">Tệp cấu hình</span></a>
@@ -764,6 +765,41 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
+    <!-- ═══ SCHEDULER ═══ -->
+    <div id="page-scheduler" style="display:none">
+      <div class="page-header">
+        <div><h1>⏰ Lịch trình</h1><div class="sub">Quản lý tác vụ lên lịch & thông báo tự động</div></div>
+        <button class="btn btn-primary" onclick="toggleSchedulerForm()">+ Thêm tác vụ</button>
+      </div>
+      <!-- Add Task Form -->
+      <div id="scheduler-add-form" class="card" style="display:none;margin-bottom:20px">
+        <h3 style="margin-bottom:12px">Tạo tác vụ mới</h3>
+        <div class="ch-fields">
+          <label>Tên tác vụ</label>
+          <input type="text" id="sched-name" placeholder="daily-report">
+          <label>Mô tả / Prompt</label>
+          <textarea id="sched-prompt" placeholder="Tóm tắt doanh thu hôm nay từ hệ thống..." rows="3"></textarea>
+          <label>Lịch (Cron expression)</label>
+          <input type="text" id="sched-cron" placeholder="0 9 * * * (mỗi ngày 9:00)">
+          <div style="font-size:11px;color:var(--text2);margin-top:-6px">Ví dụ: <code>0 9 * * *</code> = 9:00 hàng ngày, <code>*/30 * * * *</code> = mỗi 30 phút, <code>0 8 * * 1</code> = 8:00 T2 hàng tuần</div>
+        </div>
+        <div class="ch-actions" style="margin-top:12px">
+          <button class="btn btn-primary btn-sm" onclick="addSchedulerTask()">✅ Tạo</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleSchedulerForm()">Hủy</button>
+        </div>
+      </div>
+      <!-- Task List -->
+      <div class="card">
+        <h3 style="margin-bottom:12px">Tác vụ đã lên lịch (<span id="sched-count">0</span>)</h3>
+        <div id="scheduler-tasks-list"><div style="color:var(--text2);text-align:center;padding:20px">Đang tải...</div></div>
+      </div>
+      <!-- Notification History -->
+      <div class="card" style="margin-top:20px">
+        <h3 style="margin-bottom:12px">📨 Lịch sử thông báo</h3>
+        <div id="scheduler-notifications"><div style="color:var(--text2);text-align:center;padding:20px">Đang tải...</div></div>
+      </div>
+    </div>
+
     <!-- ═══ CONFIG FILE ═══ -->
     <div id="page-configfile" style="display:none">
       <div class="page-header"><div><h1>📄 config.toml</h1><div class="sub" id="config-path">—</div></div></div>
@@ -851,6 +887,7 @@ function showPage(name, pushState) {
   if (name === 'gallery') { loadGalleryPage(); }
   if (name === 'knowledge') loadKnowledgeDocs();
   if (name === 'brain') loadBrainFiles();
+  if (name === 'scheduler') loadSchedulerPage();
   if (name === 'groups') { navigateTo(null, 'chat'); return; } // redirect groups to chat
 }
 
@@ -864,7 +901,7 @@ window.addEventListener('popstate', (ev) => {
 function getPageFromPath() {
   const path = location.pathname.replace(/^\//, '').replace(/\/$/, '');
   // Map valid page names
-  const validPages = ['dashboard','chat','settings','providers','channels','tools','brain','configfile','mcp','agents','gallery','knowledge'];
+  const validPages = ['dashboard','chat','settings','providers','channels','tools','brain','configfile','mcp','agents','gallery','knowledge','scheduler'];
   if (path === 'groups') return 'chat'; // redirect groups page to chat
   if (!path || path === '' || !validPages.includes(path)) return 'dashboard';
   return path;
@@ -1499,6 +1536,7 @@ const CHANNELS = [
     {key:'phone_number_id',label:'Phone Number ID',type:'text',placeholder:'Cloud API Phone ID'},
     {key:'access_token',label:'Access Token',type:'password',placeholder:'EAAG...', masked:true},
     {key:'webhook_verify_token',label:'Webhook Verify Token',type:'text',placeholder:'my_verify_token'},
+    {key:'_webhook_info',label:'Webhook URL (for Meta)',type:'info',value: location.origin + '/api/v1/webhook/whatsapp'},
   ]},
   {type:'webhook',name:'Webhook API',icon:'🔗',fields:[
     {key:'_inbound_info',label:'Inbound Endpoint',type:'info',value: location.origin + '/api/v1/webhook/inbound'},
@@ -1623,6 +1661,110 @@ async function loadConfigToml() {
     document.getElementById('config-toml-content').textContent = data.toml || 'No config loaded';
     document.getElementById('config-path').textContent = data.config_path || '';
   } catch(e) {}
+}
+
+// ═══ SCHEDULER PAGE ═══
+async function loadSchedulerPage() {
+  // Load tasks
+  try {
+    const res = await authFetch(API + '/api/v1/scheduler/tasks');
+    const data = await res.json();
+    const tasks = data.tasks || [];
+    document.getElementById('sched-count').textContent = tasks.length;
+    if (tasks.length === 0) {
+      document.getElementById('scheduler-tasks-list').innerHTML = '<div style="color:var(--text2);text-align:center;padding:30px">⏰ Chưa có tác vụ nào. Bấm "+ Thêm tác vụ" để bắt đầu.</div>';
+    } else {
+      document.getElementById('scheduler-tasks-list').innerHTML = tasks.map(t => `
+        <div class="ch-card" style="margin-bottom:12px">
+          <div class="ch-header">
+            <span class="ch-name">${t.name || t.id || '—'}</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge badge-${t.active !== false ? 'green' : 'orange'}">${t.active !== false ? '● Active' : 'Paused'}</span>
+            </div>
+          </div>
+          <div class="ch-fields" style="font-size:12px">
+            ${t.prompt ? `<div><strong>Prompt:</strong> ${t.prompt.substring(0, 200)}${t.prompt.length > 200 ? '...' : ''}</div>` : ''}
+            ${t.cron ? `<div><strong>Cron:</strong> <code>${t.cron}</code></div>` : ''}
+            ${t.task_type ? `<div><strong>Type:</strong> ${t.task_type}</div>` : ''}
+            ${t.next_run ? `<div><strong>Next run:</strong> ${t.next_run}</div>` : ''}
+            ${t.last_run ? `<div><strong>Last run:</strong> ${t.last_run}</div>` : ''}
+          </div>
+          <div class="ch-actions" style="margin-top:8px">
+            <button class="btn btn-danger btn-sm" onclick="deleteSchedulerTask('${t.id}')">🗑️ Xóa</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    document.getElementById('scheduler-tasks-list').innerHTML = `<div style="color:var(--red);padding:20px">❌ ${e.message}</div>`;
+  }
+
+  // Load notification history
+  try {
+    const res = await authFetch(API + '/api/v1/scheduler/notifications');
+    const data = await res.json();
+    const notifs = data.notifications || [];
+    if (notifs.length === 0) {
+      document.getElementById('scheduler-notifications').innerHTML = '<div style="color:var(--text2);text-align:center;padding:20px">Chưa có thông báo nào.</div>';
+    } else {
+      document.getElementById('scheduler-notifications').innerHTML = notifs.map(n => `
+        <div style="padding:10px;margin-bottom:8px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong style="color:var(--cyan)">${n.title || '—'}</strong>
+            <span class="badge badge-${n.priority === 'Critical' ? 'red' : n.priority === 'High' ? 'orange' : 'blue'}" style="font-size:10px">${n.priority || 'Normal'}</span>
+          </div>
+          <div style="font-size:12px;margin-top:4px;color:var(--text2)">${n.body || ''}</div>
+          <div style="font-size:10px;margin-top:4px;color:var(--text2)">📍 ${n.source || '—'} • ${n.timestamp ? new Date(n.timestamp).toLocaleString() : '—'}</div>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    document.getElementById('scheduler-notifications').innerHTML = `<div style="color:var(--red);padding:20px">❌ ${e.message}</div>`;
+  }
+}
+
+function toggleSchedulerForm() {
+  const form = document.getElementById('scheduler-add-form');
+  form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+async function addSchedulerTask() {
+  const name = document.getElementById('sched-name').value.trim();
+  const prompt = document.getElementById('sched-prompt').value.trim();
+  const cron = document.getElementById('sched-cron').value.trim();
+  if (!name) { toast('❌ Tên tác vụ không được để trống'); return; }
+  if (!cron) { toast('❌ Cron expression không được để trống'); return; }
+  try {
+    const res = await authFetch(API + '/api/v1/scheduler/tasks', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, prompt: prompt || name, cron, task_type: 'cron' })
+    });
+    const r = await res.json();
+    if (r.ok) {
+      toast('✅ Tác vụ "' + name + '" đã tạo!');
+      toggleSchedulerForm();
+      document.getElementById('sched-name').value = '';
+      document.getElementById('sched-prompt').value = '';
+      document.getElementById('sched-cron').value = '';
+      await loadSchedulerPage();
+    } else {
+      toast('❌ ' + (r.error || 'Lỗi tạo tác vụ'));
+    }
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function deleteSchedulerTask(id) {
+  if (!confirm('Xóa tác vụ này?')) return;
+  try {
+    const res = await authFetch(API + '/api/v1/scheduler/tasks/' + encodeURIComponent(id), { method: 'DELETE' });
+    const r = await res.json();
+    if (r.ok) {
+      toast('✅ Đã xóa tác vụ');
+      await loadSchedulerPage();
+    } else {
+      toast('❌ Không tìm thấy tác vụ');
+    }
+  } catch(e) { toast('❌ ' + e.message); }
 }
 
 // ═══ MCP SERVERS ═══

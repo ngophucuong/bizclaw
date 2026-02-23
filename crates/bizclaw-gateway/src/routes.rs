@@ -33,13 +33,15 @@ fn apply_provider_config_from_db(
         if !db_provider.api_key.is_empty() {
             config.api_key = db_provider.api_key;
         }
-        // Use provider-specific base_url if set (for Ollama custom host, etc.)
-        if !db_provider.base_url.is_empty() && config.api_base_url.is_empty() {
-            // Don't override if user explicitly set api_base_url in global config
-            // But for local providers, always use their registered URL
-            if db_provider.provider_type == "local" || db_provider.provider_type == "proxy" {
+        // For local/proxy providers, ALWAYS use their registered URL
+        // (Ollama, llama.cpp, CLIProxy need their specific endpoints)
+        if db_provider.provider_type == "local" || db_provider.provider_type == "proxy" {
+            if !db_provider.base_url.is_empty() {
                 config.api_base_url = db_provider.base_url;
             }
+        } else if !db_provider.base_url.is_empty() && config.api_base_url.is_empty() {
+            // For cloud providers, only set if user hasn't explicitly configured one
+            config.api_base_url = db_provider.base_url;
         }
     }
 }
@@ -486,8 +488,14 @@ pub async fn update_channel(
                 enabled,
                 phone_number_id: phone_val,
                 access_token: token,
-                webhook_verify_token: String::new(),
-                business_id: String::new(),
+                webhook_verify_token: req.get("webhook_verify_token")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                business_id: req.get("business_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
             });
         }
         "webhook" => {
@@ -1613,21 +1621,32 @@ pub async fn update_agent(
     }
 
     // Phase 3: Persist to DB — always save metadata/prompt even without re-creation
+    // Use DB record as fallback (NOT hardcoded "openai") to preserve user's provider choice
     {
+        let db_agent = state.db.get_agent(&name).ok();
         let orch = state.orchestrator.lock().await;
         let agents_list = orch.list_agents();
         let current = agents_list.iter().find(|a| a["name"].as_str() == Some(&name));
         let final_role = current.and_then(|a| a["role"].as_str()).unwrap_or("assistant");
         let final_desc = current.and_then(|a| a["description"].as_str()).unwrap_or("");
-        let final_provider = provider.unwrap_or(
-            current.and_then(|a| a["provider"].as_str()).unwrap_or("openai")
-        );
-        let final_model = model.unwrap_or(
-            current.and_then(|a| a["model"].as_str()).unwrap_or("")
-        );
-        let final_prompt = system_prompt.unwrap_or(
-            current.and_then(|a| a["system_prompt"].as_str()).unwrap_or("")
-        );
+        // Provider fallback chain: explicit request → DB record → orchestrator live state → ""
+        let final_provider = provider.unwrap_or_else(|| {
+            current.and_then(|a| a["provider"].as_str())
+                .filter(|p| !p.is_empty())
+                .or_else(|| db_agent.as_ref().map(|a| a.provider.as_str()).filter(|p| !p.is_empty()))
+                .unwrap_or("")
+        });
+        let final_model = model.unwrap_or_else(|| {
+            current.and_then(|a| a["model"].as_str())
+                .filter(|m| !m.is_empty())
+                .or_else(|| db_agent.as_ref().map(|a| a.model.as_str()).filter(|m| !m.is_empty()))
+                .unwrap_or("")
+        });
+        let final_prompt = system_prompt.unwrap_or_else(|| {
+            current.and_then(|a| a["system_prompt"].as_str())
+                .or_else(|| db_agent.as_ref().map(|a| a.system_prompt.as_str()))
+                .unwrap_or("")
+        });
         if let Err(e) = state.db.upsert_agent(&name, final_role, final_desc, final_provider, final_model, final_prompt) {
             tracing::warn!("DB persist failed for agent '{}': {}", name, e);
         }
