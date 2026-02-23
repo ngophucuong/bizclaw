@@ -192,6 +192,60 @@ impl Provider for OpenAiCompatibleProvider {
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
+
+            // Auto-retry WITHOUT tools if model doesn't support function calling
+            // (e.g., tinyllama, phi, etc. on Ollama)
+            if status.as_u16() == 400
+                && !tools.is_empty()
+                && (text.contains("does not support tools")
+                    || text.contains("tool_use is not supported")
+                    || text.contains("does not support function"))
+            {
+                tracing::warn!(
+                    "⚠️ Model '{}' doesn't support tools — retrying without tools",
+                    params.model
+                );
+                // Remove tools from body and retry
+                body.as_object_mut().map(|m| m.remove("tools"));
+                let retry_req = self
+                    .client
+                    .post(&url)
+                    .header("Content-Type", "application/json")
+                    .json(&body);
+                let retry_req = self.apply_auth(retry_req);
+                let retry_resp = retry_req.send().await.map_err(|e| {
+                    BizClawError::Http(format!("{} retry failed: {}", self.name, e))
+                })?;
+                if !retry_resp.status().is_success() {
+                    let rs = retry_resp.status();
+                    let rt = retry_resp.text().await.unwrap_or_default();
+                    return Err(BizClawError::Provider(format!(
+                        "{} API error {} (retry without tools): {}",
+                        self.name, rs, rt
+                    )));
+                }
+                // Parse the retry response (same flow as below)
+                let json: Value = retry_resp
+                    .json()
+                    .await
+                    .map_err(|e| BizClawError::Http(e.to_string()))?;
+                let choice = json["choices"]
+                    .get(0)
+                    .ok_or_else(|| BizClawError::Provider("No choices in retry response".into()))?;
+                let content = choice["message"]["content"].as_str().map(String::from);
+                let usage = json["usage"].as_object().map(|u| Usage {
+                    prompt_tokens: u.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                    completion_tokens: u.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                    total_tokens: u.get("total_tokens").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                });
+                return Ok(ProviderResponse {
+                    content,
+                    tool_calls: vec![], // No tools available
+                    finish_reason: choice["finish_reason"].as_str().map(String::from),
+                    usage,
+                });
+            }
+
             return Err(BizClawError::Provider(format!(
                 "{} API error {}: {}",
                 self.name, status, text
