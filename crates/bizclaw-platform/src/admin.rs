@@ -103,6 +103,7 @@ impl AdminServer {
             .route("/api/admin/users", post(create_user_handler))
             .route("/api/admin/users/{id}", delete(delete_user_handler))
             .route("/api/admin/users/{id}/tenant", put(assign_tenant_handler))
+            .route("/api/admin/users/{id}/password/reset", put(admin_reset_user_password))
             // Profile
             .route("/api/admin/users/me/password", put(crate::self_serve::change_password_handler))
             .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
@@ -1064,6 +1065,47 @@ async fn assign_tenant_handler(
                 .lock()
                 .unwrap()
                 .log_event("user_assigned", "admin", &id, Some(&details))
+                .ok();
+            Json(serde_json::json!({"ok": true}))
+        }
+        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+    }
+}
+
+// ═════════════════════════════════════════════════════════════
+// ADMIN RESET USER PASSWORD (Super Admin only)
+// ═════════════════════════════════════════════════════════════
+
+#[derive(serde::Deserialize)]
+struct AdminResetPasswordReq {
+    new_password: String,
+}
+
+/// Super Admin force-resets a user's password (no old password required).
+async fn admin_reset_user_password(
+    State(state): State<Arc<AdminState>>,
+    Path(id): Path<String>,
+    Json(req): Json<AdminResetPasswordReq>,
+) -> Json<serde_json::Value> {
+    if req.new_password.len() < 6 {
+        return Json(serde_json::json!({"ok": false, "error": "Password must be at least 6 characters"}));
+    }
+
+    let new_pwd = req.new_password.clone();
+    let hash = match tokio::task::spawn_blocking(move || crate::auth::hash_password(&new_pwd)).await {
+        Ok(Ok(h)) => h,
+        Ok(Err(e)) => return Json(serde_json::json!({"ok": false, "error": format!("Hash error: {e}")})),
+        Err(e) => return Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+    };
+
+    let db_res = state.db.lock().unwrap().update_user_password(&id, &hash);
+    match db_res {
+        Ok(()) => {
+            state
+                .db
+                .lock()
+                .unwrap()
+                .log_event("admin_password_reset", "admin", &id, Some("password force-reset by admin"))
                 .ok();
             Json(serde_json::json!({"ok": true}))
         }

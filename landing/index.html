@@ -191,7 +191,7 @@ footer a{color:var(--accent2);text-decoration:none}
       <a href="#features" data-vi="Năng lực" data-en="Features">Năng lực</a>
       <a href="#showcase" data-vi="Showcase" data-en="Showcase">Showcase</a>
       <a href="#how" data-vi="Bắt đầu" data-en="Get Started">Bắt đầu</a>
-
+      <a href="#register" data-vi="Đăng ký" data-en="Register">Đăng ký</a>
       <button class="lang-toggle" onclick="toggleLang()">🌐 EN</button>
       <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="nav-cta" data-vi="⭐ GitHub" data-en="⭐ GitHub">⭐ GitHub</a>
     </div>
@@ -209,8 +209,8 @@ footer a{color:var(--accent2);text-decoration:none}
     </h1>
     <p class="hero-desc" data-vi="BizClaw biến mọi thiết bị thành trợ lý AI riêng cho doanh nghiệp — từ Raspberry Pi bỏ túi đến VPS. Kết nối Zalo, quản lý email, lịch hẹn, khách hàng — hoạt động 24/7, không phụ thuộc cloud, không cần internet liên tục." data-en="BizClaw turns any device into your private business AI assistant — from a pocket-sized Raspberry Pi to a VPS. Connect Zalo, manage emails, appointments, clients — running 24/7, cloud-free, no constant internet required.">BizClaw biến mọi thiết bị thành trợ lý AI riêng cho doanh nghiệp — từ Raspberry Pi bỏ túi đến VPS. Kết nối Zalo, quản lý email, lịch hẹn, khách hàng — hoạt động 24/7, không phụ thuộc cloud, không cần internet liên tục.</p>
     <div class="hero-actions">
-      <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="btn-primary" data-vi="🚀 Clone & Tự Host Ngay" data-en="🚀 Clone & Self-Host Now">🚀 Clone & Tự Host Ngay</a>
-      <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="btn-secondary">⭐ GitHub</a>
+      <a href="#register" class="btn-primary" data-vi="🚀 Dùng thử SaaS Miễn phí" data-en="🚀 Try SaaS for Free">🚀 Dùng thử SaaS Miễn phí</a>
+      <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="btn-secondary">⭐ GitHub — Tự Host</a>
     </div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="num">50+</div><div class="label" data-vi="Agent Templates" data-en="Agent Templates">Agent Templates</div></div>
@@ -607,7 +607,42 @@ footer a{color:var(--accent2);text-decoration:none}
   </div>
 </section>
 
-<!-- REGISTER section removed — BizClaw is 100% self-hosted, no cloud registration needed -->
+<!-- REGISTER / SaaS CTA -->
+<section id="register">
+  <div class="container" style="text-align:center">
+    <div class="section-label" data-vi="ĐĂNG KÝ" data-en="REGISTER">ĐĂNG KÝ</div>
+    <div class="section-title" data-vi="Dùng thử BizClaw SaaS — Miễn phí" data-en="Try BizClaw SaaS — Free">Dùng thử BizClaw SaaS — Miễn phí</div>
+    <div class="section-desc" style="margin:0 auto 32px" data-vi="Không cần cài đặt — đăng ký ngay, có hệ thống AI riêng trong 30 giây. Hoặc tự host 100% trên thiết bị của bạn." data-en="No installation needed — register now, get your own AI system in 30 seconds. Or self-host 100% on your own device.">Không cần cài đặt — đăng ký ngay, có hệ thống AI riêng trong 30 giây. Hoặc tự host 100% trên thiết bị của bạn.</div>
+    
+    <div class="register-box" style="text-align:left">
+      <h2 data-vi="🚀 Đăng ký SaaS" data-en="🚀 Register SaaS">🚀 Đăng ký SaaS</h2>
+      <p class="sub" data-vi="Tạo hệ thống AI Agent riêng cho doanh nghiệp" data-en="Create your own AI Agent system for business">Tạo hệ thống AI Agent riêng cho doanh nghiệp</p>
+      <div id="register-error-landing" style="color:#f85149;font-size:13px;margin-bottom:12px;display:none"></div>
+      <div class="form-group">
+        <label data-vi="Tên công ty" data-en="Company name">Tên công ty</label>
+        <input type="text" id="reg-company" placeholder="Ví dụ: Công ty ABC">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="admin@company.com">
+        </div>
+        <div class="form-group">
+          <label data-vi="Mật khẩu" data-en="Password">Mật khẩu</label>
+          <input type="password" id="reg-password" placeholder="Ít nhất 6 ký tự">
+        </div>
+      </div>
+      <button class="form-submit" onclick="doLandingRegister()" data-vi="🚀 Khởi tạo hệ thống" data-en="🚀 Start your system">🚀 Khởi tạo hệ thống</button>
+      <p class="form-note" data-vi="Miễn phí vĩnh viễn · Không cần thẻ tín dụng · Sở hữu toàn bộ dữ liệu" data-en="Free forever · No credit card · Own all your data">Miễn phí vĩnh viễn · Không cần thẻ tín dụng · Sở hữu toàn bộ dữ liệu</p>
+    </div>
+    <div id="register-success-landing" class="form-success">
+      <div class="icon">🎉</div>
+      <h3 data-vi="Khởi tạo thành công!" data-en="Setup complete!">Khởi tạo thành công!</h3>
+      <p id="register-success-msg"></p>
+      <a id="register-success-link" href="#" target="_blank" class="btn-primary" style="margin-top:16px;display:inline-flex" data-vi="🔑 Đăng nhập ngay" data-en="🔑 Login now">🔑 Đăng nhập ngay</a>
+    </div>
+  </div>
+</section>
 
 
 
@@ -704,7 +739,55 @@ const observer = new IntersectionObserver((entries) => {
 }, { threshold: 0.1 });
 document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 
-// ═══ Registration removed — Self-hosted, no cloud signup ═══
+// ═══ Registration — Landing Page SaaS Signup ═══
+async function doLandingRegister() {
+  const errEl = document.getElementById('register-error-landing');
+  const company_name = document.getElementById('reg-company').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  
+  if(!company_name || !email || !password) {
+    errEl.textContent = currentLang === 'vi' ? 'Vui lòng nhập đủ thông tin' : 'Please fill in all fields';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(password.length < 6) {
+    errEl.textContent = currentLang === 'vi' ? 'Mật khẩu phải có ít nhất 6 ký tự' : 'Password must be at least 6 characters';
+    errEl.style.display = 'block';
+    return;
+  }
+  
+  errEl.style.color = '#818cf8';
+  errEl.textContent = currentLang === 'vi' ? 'Đang khởi tạo hệ thống (vui lòng chờ)...' : 'Setting up your system (please wait)...';
+  errEl.style.display = 'block';
+  
+  try {
+    const apiBase = location.hostname === 'bizclaw.vn' ? 'https://bizclaw.vn' : location.origin;
+    const res = await fetch(apiBase + '/admin/api/admin/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({company_name, email, password})
+    });
+    const r = await res.json();
+    if(r.ok) {
+      // Hide form, show success
+      document.querySelector('.register-box').style.display = 'none';
+      const successEl = document.getElementById('register-success-landing');
+      successEl.style.display = 'block';
+      document.getElementById('register-success-msg').textContent = 
+        currentLang === 'vi' 
+          ? `Domain: ${r.slug}.bizclaw.vn — Đăng nhập với email ${email}`
+          : `Domain: ${r.slug}.bizclaw.vn — Login with ${email}`;
+      document.getElementById('register-success-link').href = `https://${r.slug}.bizclaw.vn`;
+    } else {
+      errEl.style.color = '#f85149';
+      errEl.textContent = r.error || 'Registration failed';
+    }
+  } catch(e) {
+    errEl.style.color = '#f85149';
+    errEl.textContent = e.message;
+  }
+}
 
 // ═══ Sponsor QR Modal ═══
 function openSponsor() {

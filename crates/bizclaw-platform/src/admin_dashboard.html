@@ -545,6 +545,20 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   </div>
 </div>
 
+<!-- Reset User Password Modal (Admin) -->
+<div id="modal-reset-password" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>🔑 Reset User Password</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px">User: <strong id="rp-email" style="color:var(--accent)"></strong></p>
+    <input type="hidden" id="rp-id">
+    <label>New Password</label><input id="rp-new-password" type="password" placeholder="Mật khẩu mới (ít nhất 6 ký tự)">
+    <div class="actions">
+      <button class="btn btn-outline" onclick="hideModal('modal-reset-password')">Cancel</button>
+      <button class="btn btn-primary" onclick="adminResetUserPassword()">Reset Password</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -726,7 +740,7 @@ function showPage(p, updateHash = true){
 
   // Update sidebar active state
   document.querySelectorAll('.sidebar a[data-page]').forEach(a=>{
-    a.classList.toggle('active', a.dataset.page === p);
+    a.classList.toggle('active', a.dataset.page === p || (p === 'tenant-detail' && a.dataset.page === 'tenants'));
   });
 
   // Update hash in URL (e.g. #/tenants)
@@ -773,10 +787,34 @@ function initRouter(){
 function loadPage(){
   if(currentPage==='dashboard')loadDashboard();
   else if(currentPage==='tenants')loadTenants();
-  else if(currentPage==='tenant-detail') {} // already loaded by openTenantDetail
+  else if(currentPage==='tenant-detail') loadTenantDetailFromHash();
   else if(currentPage==='users')loadUsers();
   else if(currentPage==='audit')loadAudit();
   else if(currentPage==='ollama')loadOllama();
+}
+
+// Load tenant detail from URL hash (e.g. after F5 or direct navigation)
+async function loadTenantDetailFromHash() {
+  const hash = window.location.hash.replace(/^#/, '') || '/';
+  const m = hash.match(/^\/tenants\/(.+)/);
+  if(!m) { showPage('tenants'); return; }
+  const tenantId = m[1];
+  // If already loaded this tenant, skip
+  if(detailTenantId === tenantId && document.getElementById('detail-tenant-name').textContent !== '—') return;
+  try {
+    const res = await authFetch(API+'/tenants/'+tenantId);
+    const data = await res.json();
+    if(data.ok && data.tenant) {
+      const t = data.tenant;
+      openTenantDetail(t.id, t.name, t.slug, t.provider, t.model, t.status, t.plan, t.pairing_code||'', t.port||'');
+    } else {
+      toast('❌ Tenant not found', 'error');
+      showPage('tenants');
+    }
+  } catch(e) {
+    toast('❌ '+e.message, 'error');
+    showPage('tenants');
+  }
 }
 
 // ── Toast (stacking) ──────────────────────────────────
@@ -915,6 +953,7 @@ async function loadUsers(){
             </div>
           </div>
           <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" onclick="showResetPasswordModal('${esc(u.id)}','${esc(u.email)}')">🔑 Reset Pass</button>
             <button class="btn btn-outline btn-sm" onclick="showAssignTenantModal('${esc(u.id)}','${esc(u.email)}')">🏢 Assign Tenant</button>
             <button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.id)}','${esc(u.email)}')" title="Delete User">✕</button>
           </div>
@@ -957,6 +996,24 @@ async function assignUserTenant() {
   try {
     const r = await(await authFetch(API+'/users/'+id+'/tenant',{method:'PUT',body:JSON.stringify({tenant_id})})).json();
     if(r.ok) { hideModal('modal-assign-tenant'); toast('✅ Tenant assigned'); loadUsers(); }
+    else { toast('❌ '+r.error,'error'); }
+  } catch(e) { toast('❌ '+e.message,'error'); }
+}
+
+function showResetPasswordModal(id, email) {
+  document.getElementById('rp-id').value = id;
+  document.getElementById('rp-email').textContent = email;
+  document.getElementById('rp-new-password').value = '';
+  document.getElementById('modal-reset-password').classList.remove('hidden');
+}
+
+async function adminResetUserPassword() {
+  const id = document.getElementById('rp-id').value;
+  const new_password = document.getElementById('rp-new-password').value;
+  if(!new_password || new_password.length < 6) { toast('❌ Mật khẩu phải có ít nhất 6 ký tự','error'); return; }
+  try {
+    const r = await(await authFetch(API+'/users/'+id+'/password/reset',{method:'PUT',body:JSON.stringify({new_password})})).json();
+    if(r.ok) { hideModal('modal-reset-password'); toast('✅ Mật khẩu đã được đặt lại thành công'); }
     else { toast('❌ '+r.error,'error'); }
   } catch(e) { toast('❌ '+e.message,'error'); }
 }

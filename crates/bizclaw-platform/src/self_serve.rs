@@ -1,6 +1,6 @@
 use crate::admin::AdminState;
 use axum::{Extension, Json, extract::State};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
 
 #[derive(Deserialize)]
@@ -71,7 +71,7 @@ pub async fn register_handler(
         }
     }
 
-    let mut db = state.db.lock().unwrap();
+    let db = state.db.lock().unwrap();
     
     // Check if user already exists
     if let Ok(Some(_)) = db.get_user_by_email(&req.email) {
