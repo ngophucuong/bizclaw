@@ -21,6 +21,8 @@ pub struct AdminState {
     pub domain: String,
     /// Rate limiter: email → (attempt_count, first_attempt_time)
     pub login_attempts: Mutex<std::collections::HashMap<String, (u32, std::time::Instant)>>,
+    /// Rate limiter for registration: email → (attempt_count, first_attempt_time)
+    pub register_attempts: Mutex<std::collections::HashMap<String, (u32, std::time::Instant)>>,
 }
 
 /// JWT auth middleware — validates Authorization: Bearer <token>.
@@ -653,15 +655,14 @@ async fn login(
         entry.0 += 1;
     }
 
-    tracing::info!("login: Locking DB to get_user_by_email for {}", req.email);
+    tracing::debug!("login: querying user {}", req.email);
     let user = state.db.lock().unwrap().get_user_by_email(&req.email);
-    tracing::info!("login: DB unlocked. Found user: {}", user.as_ref().map(|x| x.is_some()).unwrap_or(false));
     match user {
         Ok(Some((id, hash, role))) => {
             // Run bcrypt in blocking thread to avoid stalling the async runtime
             let password = req.password.clone();
             let hash_clone = hash.clone();
-            tracing::info!("login: Hashing password to verify");
+            tracing::debug!("login: verifying password");
             let ok = tokio::task::spawn_blocking(move || {
                 crate::auth::verify_password(&password, &hash_clone)
             })
@@ -669,19 +670,16 @@ async fn login(
             .unwrap_or(false);
 
             if ok {
-                tracing::info!("login: Password verified, generating token");
-                // Get tenant_id and status for JWT in a single lock
+                tracing::debug!("login: password verified, generating token");
+                // Get tenant_id and status for JWT — direct query instead of list_users
                 let (tenant_id, user_status) = {
                     let db = state.db.lock().unwrap();
-                    let users = db.list_users().unwrap_or_default();
-                    let found = users.into_iter().find(|u| u.id == id);
-                    match found {
-                        Some(u) => {
-                            let status = u.status.clone();
-                            let tid = if status == "pending" { None } else { u.tenant_id.clone() };
-                            (tid, status)
+                    match db.get_user_by_id(&id) {
+                        Ok(Some(u)) => {
+                            let tid = if u.status == "pending" { None } else { u.tenant_id.clone() };
+                            (tid, u.status.clone())
                         }
-                        None => (None, "active".into()),
+                        _ => (None, "active".into()),
                     }
                 };
                 if user_status == "pending" {
@@ -698,14 +696,12 @@ async fn login(
                 }
                 match crate::auth::create_token(&id, &req.email, &role, tenant_id.as_deref(), &state.jwt_secret) {
                     Ok(token) => {
-                        tracing::info!("login: Locking DB to log_event");
                         state
                             .db
                             .lock()
                             .unwrap()
                             .log_event("login_success", "user", &id, None)
                             .ok();
-                        tracing::info!("login: DB unlocked after log_event");
                         Json(serde_json::json!({"ok": true, "token": token, "role": role}))
                     }
                     Err(e) => {
@@ -1202,14 +1198,14 @@ async fn create_user_handler(
     if !is_super_admin(&claims) {
         return Json(serde_json::json!({"ok": false, "error": "Chỉ Super Admin mới có quyền tạo user."}));
     }
-    tracing::info!("create_user_handler: Starting user creation for {}", req.email);
+    tracing::debug!("create_user: {}", req.email);
     if req.email.is_empty() || req.password.is_empty() {
         return Json(serde_json::json!({"ok": false, "error": "Email and password are required"}));
     }
 
     // Hash password in blocking thread
     let password = req.password.clone();
-    tracing::info!("create_user_handler: Hashing password");
+    tracing::debug!("create_user: hashing password");
     let hash = match tokio::task::spawn_blocking(move || {
         crate::auth::hash_password(&password)
     })
@@ -1221,22 +1217,17 @@ async fn create_user_handler(
     };
 
     let role = req.role.as_deref().unwrap_or("admin");
-    tracing::info!("create_user_handler: Locking DB to create_user");
-    
     // Extracted lock to avoid deadlock with subsequent log_event lock
     let db_res = state.db.lock().unwrap().create_user(&req.email, &hash, role, req.tenant_id.as_deref().filter(|s| !s.is_empty()));
-    tracing::info!("create_user_handler: DB unlocked. Result: {:?}", db_res.is_ok());
     
     match db_res {
         Ok(id) => {
-            tracing::info!("create_user_handler: Locking DB to log_event");
             state
                 .db
                 .lock()
                 .unwrap()
                 .log_event("user_created", "admin", &id, Some(&format!("email={}", req.email)))
                 .ok();
-            tracing::info!("create_user_handler: DB unlocked after log_event");
             Json(serde_json::json!({"ok": true, "id": id}))
         }
         Err(e) => {
@@ -1406,30 +1397,29 @@ async fn update_user_status_handler(
                 .log_event("user_status_changed", "admin", &id, Some(&format!("status={}", req.status)))
                 .ok();
             
-            // If activating a user, try to start their tenant(s)
+            // If activating a user, try to start their stopped tenant(s)
             if req.status == "active" {
                 let tenants = state.db.lock().unwrap()
                     .list_tenants_by_owner(&id)
                     .unwrap_or_default();
-                for tenant in &tenants {
-                    if tenant.status == "stopped" {
+                let stopped: Vec<_> = tenants.iter().filter(|t| t.status == "stopped").cloned().collect();
+                for tenant in &stopped {
+                    // Acquire locks one at a time — never hold db + manager simultaneously
+                    let start_result = {
                         let mut mgr = state.manager.lock().unwrap();
                         let db_ref = state.db.lock().unwrap();
-                        match mgr.start_tenant(tenant, &state.bizclaw_bin, &db_ref) {
-                            Ok(pid) => {
-                                drop(db_ref);
-                                drop(mgr);
-                                state.db.lock().unwrap()
-                                    .update_tenant_status(&tenant.id, "running", Some(pid)).ok();
-                                tracing::info!("user-activate: started tenant '{}' (pid={})", tenant.slug, pid);
-                            }
-                            Err(e) => {
-                                drop(db_ref);
-                                drop(mgr);
-                                state.db.lock().unwrap()
-                                    .update_tenant_status(&tenant.id, "error", None).ok();
-                                tracing::warn!("user-activate: failed to start tenant '{}': {e}", tenant.slug);
-                            }
+                        mgr.start_tenant(tenant, &state.bizclaw_bin, &db_ref)
+                    }; // Both locks dropped here
+                    match start_result {
+                        Ok(pid) => {
+                            state.db.lock().unwrap()
+                                .update_tenant_status(&tenant.id, "running", Some(pid)).ok();
+                            tracing::info!("user-activate: started tenant '{}' (pid={})", tenant.slug, pid);
+                        }
+                        Err(e) => {
+                            state.db.lock().unwrap()
+                                .update_tenant_status(&tenant.id, "error", None).ok();
+                            tracing::warn!("user-activate: failed to start tenant '{}': {e}", tenant.slug);
                         }
                     }
                 }

@@ -57,6 +57,25 @@ pub async fn register_handler(
     State(state): State<Arc<AdminState>>,
     Json(req): Json<RegisterReq>,
 ) -> Json<serde_json::Value> {
+    // Rate limiting — max 3 registration attempts per email per 10 minutes
+    {
+        let mut attempts = state.register_attempts.lock().unwrap();
+        let now = std::time::Instant::now();
+        if let Some((count, first_at)) = attempts.get(&req.email) {
+            if now.duration_since(*first_at).as_secs() < 600 && *count >= 3 {
+                return Json(serde_json::json!({
+                    "ok": false,
+                    "error": "Quá nhiều lần đăng ký. Vui lòng thử lại sau 10 phút."
+                }));
+            }
+            if now.duration_since(*first_at).as_secs() >= 600 {
+                attempts.remove(&req.email);
+            }
+        }
+        let entry = attempts.entry(req.email.clone()).or_insert((0, now));
+        entry.0 += 1;
+    }
+
     if req.email.is_empty() || req.password.is_empty() || req.company_name.is_empty() {
         return Json(serde_json::json!({"ok": false, "error": "Email, password, and company name are required"}));
     }

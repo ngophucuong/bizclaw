@@ -70,7 +70,6 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: 🔍 Clippy
-        continue-on-error: true
         run: cargo clippy --workspace --all-targets -- -A unused-imports -A dead-code -A private_interfaces -A private_bounds
 
   # ══════════════════════════════════════════════

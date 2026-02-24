@@ -141,12 +141,22 @@ async fn main() -> Result<()> {
     }
 
     // Prefer JWT_SECRET env var over CLI default
-    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or(cli.jwt_secret.clone());
-
-    // Warn if using default JWT secret
-    if jwt_secret == "bizclaw-platform-secret-2026" {
-        tracing::warn!("⚠️  Using DEFAULT JWT secret! Set JWT_SECRET env var for production.");
-    }
+    let jwt_secret = match std::env::var("JWT_SECRET") {
+        Ok(s) if !s.is_empty() => s,
+        _ => {
+            if cli.jwt_secret == "bizclaw-platform-secret-2026" {
+                // Auto-generate a random secret so production never uses the hardcoded default
+                use std::time::SystemTime;
+                let t = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default();
+                let generated = format!("auto-{:x}-{:x}-{:x}", t.as_nanos(), t.as_secs(), std::process::id());
+                tracing::warn!("⚠️  JWT_SECRET not set! Auto-generated random secret for this session.");
+                tracing::warn!("⚠️  Tokens will be INVALIDATED on restart. Set JWT_SECRET env var for persistence.");
+                generated
+            } else {
+                cli.jwt_secret.clone()
+            }
+        }
+    };
 
     // Build admin state
     let state = Arc::new(bizclaw_platform::admin::AdminState {
@@ -157,6 +167,7 @@ async fn main() -> Result<()> {
         base_port: cli.base_port,
         domain: cli.domain.clone(),
         login_attempts: Mutex::new(std::collections::HashMap::new()),
+        register_attempts: Mutex::new(std::collections::HashMap::new()),
     });
 
     // Start server

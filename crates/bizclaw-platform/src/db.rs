@@ -94,6 +94,21 @@ pub struct TenantAgent {
     pub updated_at: String,
 }
 
+/// Shared SELECT column list for tenant queries — single source of truth.
+const TENANT_SELECT: &str = "SELECT id,name,slug,status,port,plan,provider,model,max_messages_day,max_channels,max_members,pairing_code,pid,cpu_percent,memory_bytes,disk_bytes,owner_id,created_at FROM tenants";
+
+/// Map a database row to a Tenant struct (eliminates 3x copy-paste).
+fn row_to_tenant(row: &rusqlite::Row) -> rusqlite::Result<Tenant> {
+    Ok(Tenant {
+        id: row.get(0)?, name: row.get(1)?, slug: row.get(2)?, status: row.get(3)?,
+        port: row.get(4)?, plan: row.get(5)?, provider: row.get(6)?, model: row.get(7)?,
+        max_messages_day: row.get(8)?, max_channels: row.get(9)?, max_members: row.get(10)?,
+        pairing_code: row.get(11)?, pid: row.get(12)?, cpu_percent: row.get(13)?,
+        memory_bytes: row.get(14)?, disk_bytes: row.get(15)?,
+        owner_id: row.get(16)?, created_at: row.get(17)?,
+    })
+}
+
 impl PlatformDb {
     /// Open or create the platform database.
     pub fn open(path: &Path) -> Result<Self> {
@@ -294,88 +309,37 @@ impl PlatformDb {
     /// Get a tenant by ID.
     pub fn get_tenant(&self, id: &str) -> Result<Tenant> {
         self.conn.query_row(
-            "SELECT id,name,slug,status,port,plan,provider,model,max_messages_day,max_channels,max_members,pairing_code,pid,cpu_percent,memory_bytes,disk_bytes,owner_id,created_at FROM tenants WHERE id=?1",
+            &format!("{} WHERE id=?1", TENANT_SELECT),
             params![id],
-            |row| Ok(Tenant {
-                id: row.get(0)?, name: row.get(1)?, slug: row.get(2)?, status: row.get(3)?,
-                port: row.get(4)?, plan: row.get(5)?, provider: row.get(6)?, model: row.get(7)?,
-                max_messages_day: row.get(8)?, max_channels: row.get(9)?, max_members: row.get(10)?,
-                pairing_code: row.get(11)?, pid: row.get(12)?, cpu_percent: row.get(13)?,
-                memory_bytes: row.get(14)?, disk_bytes: row.get(15)?,
-                owner_id: row.get(16)?, created_at: row.get(17)?,
-            }),
+            row_to_tenant,
         ).map_err(|e| BizClawError::Memory(format!("Get tenant: {e}")))
     }
 
     /// List all tenants.
     pub fn list_tenants(&self) -> Result<Vec<Tenant>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,name,slug,status,port,plan,provider,model,max_messages_day,max_channels,max_members,pairing_code,pid,cpu_percent,memory_bytes,disk_bytes,owner_id,created_at FROM tenants ORDER BY created_at DESC"
+            &format!("{} ORDER BY created_at DESC", TENANT_SELECT),
         ).map_err(|e| BizClawError::Memory(format!("Prepare: {e}")))?;
 
         let tenants = stmt
-            .query_map([], |row| {
-                Ok(Tenant {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    slug: row.get(2)?,
-                    status: row.get(3)?,
-                    port: row.get(4)?,
-                    plan: row.get(5)?,
-                    provider: row.get(6)?,
-                    model: row.get(7)?,
-                    max_messages_day: row.get(8)?,
-                    max_channels: row.get(9)?,
-                    max_members: row.get(10)?,
-                    pairing_code: row.get(11)?,
-                    pid: row.get(12)?,
-                    cpu_percent: row.get(13)?,
-                    memory_bytes: row.get(14)?,
-                    disk_bytes: row.get(15)?,
-                    owner_id: row.get(16)?,
-                    created_at: row.get(17)?,
-                })
-            })
+            .query_map([], row_to_tenant)
             .map_err(|e| BizClawError::Memory(format!("Query: {e}")))?
             .filter_map(|r| r.ok())
             .collect();
-
         Ok(tenants)
     }
 
     /// List tenants owned by a specific user.
     pub fn list_tenants_by_owner(&self, owner_id: &str) -> Result<Vec<Tenant>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,name,slug,status,port,plan,provider,model,max_messages_day,max_channels,max_members,pairing_code,pid,cpu_percent,memory_bytes,disk_bytes,owner_id,created_at FROM tenants WHERE owner_id=?1 ORDER BY created_at DESC"
+            &format!("{} WHERE owner_id=?1 ORDER BY created_at DESC", TENANT_SELECT),
         ).map_err(|e| BizClawError::Memory(format!("Prepare: {e}")))?;
 
         let tenants = stmt
-            .query_map(params![owner_id], |row| {
-                Ok(Tenant {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    slug: row.get(2)?,
-                    status: row.get(3)?,
-                    port: row.get(4)?,
-                    plan: row.get(5)?,
-                    provider: row.get(6)?,
-                    model: row.get(7)?,
-                    max_messages_day: row.get(8)?,
-                    max_channels: row.get(9)?,
-                    max_members: row.get(10)?,
-                    pairing_code: row.get(11)?,
-                    pid: row.get(12)?,
-                    cpu_percent: row.get(13)?,
-                    memory_bytes: row.get(14)?,
-                    disk_bytes: row.get(15)?,
-                    owner_id: row.get(16)?,
-                    created_at: row.get(17)?,
-                })
-            })
+            .query_map(params![owner_id], row_to_tenant)
             .map_err(|e| BizClawError::Memory(format!("Query: {e}")))?
             .filter_map(|r| r.ok())
             .collect();
-
         Ok(tenants)
     }
 
@@ -474,6 +438,29 @@ impl PlatformDb {
             Ok(r) => Ok(Some(r)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(BizClawError::Memory(format!("Get user: {e}"))),
+        }
+    }
+
+    /// Get a single user by ID (efficient lookup for login flow).
+    pub fn get_user_by_id(&self, id: &str) -> Result<Option<User>> {
+        match self.conn.query_row(
+            "SELECT id,email,role,tenant_id,COALESCE(status,'active'),last_login,created_at FROM users WHERE id=?1",
+            params![id],
+            |row| {
+                Ok(User {
+                    id: row.get(0)?,
+                    email: row.get(1)?,
+                    role: row.get(2)?,
+                    tenant_id: row.get(3)?,
+                    status: row.get::<_, String>(4).unwrap_or_else(|_| "active".into()),
+                    last_login: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            },
+        ) {
+            Ok(u) => Ok(Some(u)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(BizClawError::Memory(format!("Get user by id: {e}"))),
         }
     }
 
