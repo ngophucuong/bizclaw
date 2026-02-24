@@ -187,27 +187,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 <div id="login-screen" style="position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center">
   <div style="width:420px">
     <!-- Credentials Banner — prominent, above login -->
-    <div id="credentials-banner" style="background:linear-gradient(135deg,#1a2a1a,#1a3a2a);border:1px solid var(--green);border-radius:12px;padding:20px 24px;margin-bottom:16px;text-align:left;display:none">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <span style="font-size:20px">🔑</span>
-        <h3 style="color:var(--green);font-size:16px;font-weight:700">Thông tin đăng nhập mặc định</h3>
-      </div>
-      <p style="color:var(--text);font-size:13px;margin-bottom:10px">Hệ thống đã tạo tài khoản admin mặc định. <strong style="color:var(--yellow)">Hãy lưu lại</strong> thông tin bên dưới:</p>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="color:var(--muted);font-size:12px">Email</span>
-          <code style="color:var(--accent);font-size:14px;font-weight:600;letter-spacing:0.3px">admin@bizclaw.vn</code>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="color:var(--muted);font-size:12px">Password</span>
-          <code style="color:var(--accent);font-size:14px;font-weight:600;letter-spacing:0.3px">BizClaw@2026</code>
-        </div>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:6px;background:rgba(210,153,34,0.12);border:1px solid rgba(210,153,34,0.3);border-radius:6px;padding:8px 12px">
-        <span style="font-size:14px;line-height:1.4">⚠️</span>
-        <p style="color:var(--yellow);font-size:12px;line-height:1.4"><strong>Bắt buộc:</strong> Đổi mật khẩu ngay sau khi đăng nhập lần đầu để đảm bảo an toàn hệ thống!</p>
-      </div>
-    </div>
+
     <!-- Login Form -->
     <div id="login-form-box" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px 36px;text-align:center">
       <h2 style="color:var(--accent);margin-bottom:6px;font-size:20px">🏢 BizClaw Admin</h2>
@@ -600,11 +580,6 @@ async function authFetch(url,opts={}){
 }
 function showLogin(){
   document.getElementById('login-screen').style.display='flex';
-  // Show credentials banner only on first-time setup (never logged in before)
-  const banner=document.getElementById('credentials-banner');
-  if(banner && !localStorage.getItem('bizclaw_setup_done')){
-    banner.style.display='block';
-  }
 }
 function hideLogin(){document.getElementById('login-screen').style.display='none';}
 function showAuthBox(boxId) {
@@ -612,7 +587,6 @@ function showAuthBox(boxId) {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById(boxId).style.display = 'block';
-  document.getElementById('credentials-banner').style.display = boxId === 'login-form-box' && localStorage.getItem('bizclaw_setup_done') !== '1' ? 'block' : 'none';
 }
 
 async function doLogin(){
