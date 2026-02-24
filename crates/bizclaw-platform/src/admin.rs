@@ -148,8 +148,9 @@ impl AdminServer {
 
 /// Regenerate /etc/nginx/conf.d/{domain}-tenants.conf from the DB
 /// and reload nginx so new/removed tenants are routed correctly.
+/// Runs in a background thread to avoid blocking the HTTP response.
 fn sync_nginx_routing(state: &AdminState) {
-    let domain = &state.domain;
+    let domain = state.domain.clone();
     let tenants = match state.db.lock().unwrap().list_tenants() {
         Ok(t) => t,
         Err(e) => {
@@ -158,18 +159,20 @@ fn sync_nginx_routing(state: &AdminState) {
         }
     };
 
-    // Use domain prefix for map variable names to avoid conflicts
-    let domain_slug = domain.replace('.', "_");
-    let mut map_entries = String::new();
-    for t in &tenants {
-        map_entries.push_str(&format!("    {}      {};\n", t.slug, t.port));
-    }
+    // Spawn background thread so HTTP response is not blocked
+    std::thread::spawn(move || {
+        // Use domain prefix for map variable names to avoid conflicts between domains
+        let domain_slug = domain.replace('.', "_");
+        let mut map_entries = String::new();
+        for t in &tenants {
+            map_entries.push_str(&format!("    {}      {};\n", t.slug, t.port));
+        }
 
-    // Escape dots in domain for nginx regex
-    let domain_regex = domain.replace('.', "\\.");
+        // Escape dots in domain for nginx regex
+        let domain_regex = domain.replace('.', "\\.");
 
-    let conf = format!(
-        r#"# {domain} Dynamic Tenant Routing (auto-generated)
+        let conf = format!(
+            r#"# {domain} Dynamic Tenant Routing (auto-generated)
 map $subdomain_{domain_slug} $tenant_port_{domain_slug} {{
     default   0;
 {map_entries}}}
@@ -202,29 +205,30 @@ server {{
     }}
 }}
 "#
-    );
+        );
 
-    let conf_path = format!("/etc/nginx/conf.d/{domain_slug}-tenants.conf");
-    if let Err(e) = std::fs::write(&conf_path, &conf) {
-        tracing::warn!("nginx-sync[{domain}]: failed to write {conf_path}: {e}");
-        return;
-    }
+        let conf_path = format!("/etc/nginx/conf.d/{domain_slug}-tenants.conf");
+        if let Err(e) = std::fs::write(&conf_path, &conf) {
+            tracing::warn!("nginx-sync[{domain}]: failed to write {conf_path}: {e}");
+            return;
+        }
 
-    match std::process::Command::new("nginx").args(["-t"]).output() {
-        Ok(out) if out.status.success() => {
-            match std::process::Command::new("systemctl")
-                .args(["reload", "nginx"])
-                .output()
-            {
-                Ok(_) => tracing::info!("nginx-sync[{domain}]: {} tenants synced, nginx reloaded", tenants.len()),
-                Err(e) => tracing::warn!("nginx-sync[{domain}]: reload failed: {e}"),
+        match std::process::Command::new("nginx").args(["-t"]).output() {
+            Ok(out) if out.status.success() => {
+                match std::process::Command::new("systemctl")
+                    .args(["reload", "nginx"])
+                    .output()
+                {
+                    Ok(_) => tracing::info!("nginx-sync[{domain}]: {} tenants synced, nginx reloaded", tenants.len()),
+                    Err(e) => tracing::warn!("nginx-sync[{domain}]: reload failed: {e}"),
+                }
             }
+            Ok(out) => {
+                tracing::warn!("nginx-sync[{domain}]: config test failed: {}", String::from_utf8_lossy(&out.stderr));
+            }
+            Err(e) => tracing::warn!("nginx-sync[{domain}]: nginx -t failed: {e}"),
         }
-        Ok(out) => {
-            tracing::warn!("nginx-sync[{domain}]: config test failed: {}", String::from_utf8_lossy(&out.stderr));
-        }
-        Err(e) => tracing::warn!("nginx-sync[{domain}]: nginx -t failed: {e}"),
-    }
+    });
 }
 
 // ── API Handlers ────────────────────────────────────
