@@ -4,7 +4,7 @@ use crate::db::PlatformDb;
 use crate::tenant::TenantManager;
 use axum::middleware;
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Path, State},
     routing::{delete, get, post, put},
 };
@@ -104,6 +104,7 @@ impl AdminServer {
             .route("/api/admin/users/{id}", delete(delete_user_handler))
             .route("/api/admin/users/{id}/tenant", put(assign_tenant_handler))
             .route("/api/admin/users/{id}/password/reset", put(admin_reset_user_password))
+            .route("/api/admin/users/{id}/status", put(update_user_status_handler))
             // Profile
             .route("/api/admin/users/me/password", put(crate::self_serve::change_password_handler))
             .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
@@ -232,41 +233,86 @@ server {{
     });
 }
 
-// ── API Handlers ────────────────────────────────────
+// ── Helper ──────────────────────────────────────────
 
-async fn get_stats(State(state): State<Arc<AdminState>>) -> Json<serde_json::Value> {
-    let (total, running, stopped, error) = state
-        .db
-        .lock()
-        .unwrap()
-        .tenant_stats()
-        .unwrap_or((0, 0, 0, 0));
-    let users = state
-        .db
-        .lock()
-        .unwrap()
-        .list_users()
-        .map(|u| u.len() as u32)
-        .unwrap_or(0);
-    Json(serde_json::json!({
-        "total_tenants": total, "running": running, "stopped": stopped,
-        "error": error, "users": users
-    }))
+/// Check if claims represent the super-admin (platform owner).
+fn is_super_admin(claims: &crate::auth::Claims) -> bool {
+    claims.email == "admin@bizclaw.vn" || claims.role == "superadmin"
 }
 
-async fn get_activity(State(state): State<Arc<AdminState>>) -> Json<serde_json::Value> {
+// ── API Handlers ────────────────────────────────────
+
+async fn get_stats(
+    State(state): State<Arc<AdminState>>,
+    Extension(claims): Extension<crate::auth::Claims>,
+) -> Json<serde_json::Value> {
+    if is_super_admin(&claims) {
+        let (total, running, stopped, error) = state
+            .db
+            .lock()
+            .unwrap()
+            .tenant_stats()
+            .unwrap_or((0, 0, 0, 0));
+        let users = state
+            .db
+            .lock()
+            .unwrap()
+            .list_users()
+            .map(|u| u.len() as u32)
+            .unwrap_or(0);
+        Json(serde_json::json!({
+            "total_tenants": total, "running": running, "stopped": stopped,
+            "error": error, "users": users
+        }))
+    } else {
+        // Non-super-admin: only count their own tenants
+        let my_tenants = state.db.lock().unwrap()
+            .list_tenants_by_owner(&claims.sub)
+            .unwrap_or_default();
+        let running = my_tenants.iter().filter(|t| t.status == "running").count() as u32;
+        let stopped = my_tenants.iter().filter(|t| t.status == "stopped").count() as u32;
+        let error = my_tenants.iter().filter(|t| t.status == "error").count() as u32;
+        Json(serde_json::json!({
+            "total_tenants": my_tenants.len() as u32, "running": running, "stopped": stopped,
+            "error": error, "users": 1
+        }))
+    }
+}
+
+async fn get_activity(
+    State(state): State<Arc<AdminState>>,
+    Extension(claims): Extension<crate::auth::Claims>,
+) -> Json<serde_json::Value> {
     let events = state
         .db
         .lock()
         .unwrap()
         .recent_events(20)
         .unwrap_or_default();
-    Json(serde_json::json!({ "events": events }))
+    // For non-super-admin, filter to only their events
+    if is_super_admin(&claims) {
+        Json(serde_json::json!({ "events": events }))
+    } else {
+        let filtered: Vec<_> = events.into_iter()
+            .filter(|e| e.actor_id == claims.sub)
+            .collect();
+        Json(serde_json::json!({ "events": filtered }))
+    }
 }
 
-async fn list_tenants(State(state): State<Arc<AdminState>>) -> Json<serde_json::Value> {
-    let tenants = state.db.lock().unwrap().list_tenants().unwrap_or_default();
-    Json(serde_json::json!({ "tenants": tenants }))
+async fn list_tenants(
+    State(state): State<Arc<AdminState>>,
+    Extension(claims): Extension<crate::auth::Claims>,
+) -> Json<serde_json::Value> {
+    if is_super_admin(&claims) {
+        let tenants = state.db.lock().unwrap().list_tenants().unwrap_or_default();
+        Json(serde_json::json!({ "tenants": tenants }))
+    } else {
+        let tenants = state.db.lock().unwrap()
+            .list_tenants_by_owner(&claims.sub)
+            .unwrap_or_default();
+        Json(serde_json::json!({ "tenants": tenants }))
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -280,6 +326,7 @@ struct CreateTenantReq {
 
 async fn create_tenant(
     State(state): State<Arc<AdminState>>,
+    Extension(claims): Extension<crate::auth::Claims>,
     Json(req): Json<CreateTenantReq>,
 ) -> Json<serde_json::Value> {
     let port = {
@@ -292,6 +339,9 @@ async fn create_tenant(
         port
     };
 
+    // Owner is the logged-in user (unless super-admin creates for someone else)
+    let owner_id = claims.sub.clone();
+
     match state.db.lock().unwrap().create_tenant(
         &req.name,
         &req.slug,
@@ -299,6 +349,7 @@ async fn create_tenant(
         req.provider.as_deref().unwrap_or("openai"),
         req.model.as_deref().unwrap_or("gpt-4o-mini"),
         req.plan.as_deref().unwrap_or("free"),
+        Some(&owner_id),
     ) {
         Ok(tenant) => {
             state
@@ -447,9 +498,21 @@ async fn reset_pairing(
     }
 }
 
-async fn list_users(State(state): State<Arc<AdminState>>) -> Json<serde_json::Value> {
-    let users = state.db.lock().unwrap().list_users().unwrap_or_default();
-    Json(serde_json::json!({"users": users}))
+async fn list_users(
+    State(state): State<Arc<AdminState>>,
+    Extension(claims): Extension<crate::auth::Claims>,
+) -> Json<serde_json::Value> {
+    if is_super_admin(&claims) {
+        let users = state.db.lock().unwrap().list_users().unwrap_or_default();
+        Json(serde_json::json!({"users": users}))
+    } else {
+        // Non-super-admin can only see themselves
+        let all_users = state.db.lock().unwrap().list_users().unwrap_or_default();
+        let my_users: Vec<_> = all_users.into_iter()
+            .filter(|u| u.id == claims.sub)
+            .collect();
+        Json(serde_json::json!({"users": my_users}))
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -500,7 +563,33 @@ async fn login(
 
             if ok {
                 tracing::info!("login: Password verified, generating token");
-                match crate::auth::create_token(&id, &req.email, &role, &state.jwt_secret) {
+                // Get tenant_id and status for JWT in a single lock
+                let (tenant_id, user_status) = {
+                    let db = state.db.lock().unwrap();
+                    let users = db.list_users().unwrap_or_default();
+                    let found = users.into_iter().find(|u| u.id == id);
+                    match found {
+                        Some(u) => {
+                            let status = u.status.clone();
+                            let tid = if status == "pending" { None } else { u.tenant_id.clone() };
+                            (tid, status)
+                        }
+                        None => (None, "active".into()),
+                    }
+                };
+                if user_status == "pending" {
+                    return Json(serde_json::json!({
+                        "ok": false,
+                        "error": "Tài khoản đang chờ duyệt. Vui lòng liên hệ admin để kích hoạt."
+                    }));
+                }
+                if user_status == "suspended" {
+                    return Json(serde_json::json!({
+                        "ok": false,
+                        "error": "Tài khoản đã bị tạm khóa. Vui lòng liên hệ admin."
+                    }));
+                }
+                match crate::auth::create_token(&id, &req.email, &role, tenant_id.as_deref(), &state.jwt_secret) {
                     Ok(token) => {
                         tracing::info!("login: Locking DB to log_event");
                         state
@@ -548,7 +637,7 @@ async fn validate_pairing(
     {
         Ok(Some(tenant)) => {
             // Generate a session token for this tenant
-            match crate::auth::create_token(&tenant.id, &tenant.slug, "tenant", &state.jwt_secret) {
+            match crate::auth::create_token(&tenant.id, &tenant.slug, "tenant", Some(&tenant.id), &state.jwt_secret) {
                 Ok(token) => {
                     state
                         .db
@@ -1017,27 +1106,46 @@ async fn create_user_handler(
 
 async fn delete_user_handler(
     State(state): State<Arc<AdminState>>,
+    Extension(claims): Extension<crate::auth::Claims>,
     Path(id): Path<String>,
 ) -> Json<serde_json::Value> {
-    tracing::info!("delete_user_handler: Locking DB to delete_user {}", id);
-    // Extracted lock to avoid deadlock
-    let db_res = state.db.lock().unwrap().delete_user(&id);
-    tracing::info!("delete_user_handler: DB unlocked. Result: {:?}", db_res.is_ok());
+    // Only super-admin can delete users
+    if !is_super_admin(&claims) {
+        return Json(serde_json::json!({"ok": false, "error": "Only super admin can delete users"}));
+    }
+    
+    tracing::info!("delete_user_handler: Cascade deleting user {} and their tenants", id);
+    
+    // Stop all tenant processes first
+    let tenant_ids = state.db.lock().unwrap()
+        .list_tenants_by_owner(&id)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|t| t.id)
+        .collect::<Vec<_>>();
+    for tid in &tenant_ids {
+        state.manager.lock().unwrap().stop_tenant(tid).ok();
+    }
+    
+    // Cascade delete user + tenants
+    let db_res = state.db.lock().unwrap().delete_user_cascade(&id);
     
     match db_res {
-        Ok(()) => {
-            tracing::info!("delete_user_handler: Locking DB to log_event");
+        Ok(deleted_tenants) => {
+            tracing::info!("delete_user_handler: Deleted user {} and {} tenants", id, deleted_tenants.len());
             state
                 .db
                 .lock()
                 .unwrap()
-                .log_event("user_deleted", "admin", &id, None)
+                .log_event("user_deleted_cascade", "admin", &id, Some(&format!("tenants_deleted={}", deleted_tenants.len())))
                 .ok();
-            tracing::info!("delete_user_handler: DB unlocked after log_event");
-            Json(serde_json::json!({"ok": true}))
+            if !deleted_tenants.is_empty() {
+                sync_nginx_routing(&state);
+            }
+            Json(serde_json::json!({"ok": true, "tenants_deleted": deleted_tenants.len()}))
         }
         Err(e) => {
-            tracing::error!("delete_user_handler: Error deleting user: {e}");
+            tracing::error!("delete_user_handler: Error: {e}");
             Json(serde_json::json!({"ok": false, "error": e.to_string()}))
         }
     }
@@ -1107,6 +1215,67 @@ async fn admin_reset_user_password(
                 .unwrap()
                 .log_event("admin_password_reset", "admin", &id, Some("password force-reset by admin"))
                 .ok();
+            Json(serde_json::json!({"ok": true}))
+        }
+        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+    }
+}
+
+// ═════════════════════════════════════════════════════════════
+// USER STATUS MANAGEMENT (Super Admin only)
+// ═════════════════════════════════════════════════════════════
+
+#[derive(serde::Deserialize)]
+struct UpdateUserStatusReq {
+    status: String, // pending, active, suspended
+}
+
+/// Super Admin approves/suspends a user account.
+async fn update_user_status_handler(
+    State(state): State<Arc<AdminState>>,
+    Extension(claims): Extension<crate::auth::Claims>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateUserStatusReq>,
+) -> Json<serde_json::Value> {
+    if !is_super_admin(&claims) {
+        return Json(serde_json::json!({"ok": false, "error": "Only super admin can change user status"}));
+    }
+
+    let valid_statuses = ["pending", "active", "suspended"];
+    if !valid_statuses.contains(&req.status.as_str()) {
+        return Json(serde_json::json!({"ok": false, "error": "Invalid status. Must be: pending, active, suspended"}));
+    }
+
+    let db_res = state.db.lock().unwrap().update_user_status(&id, &req.status);
+    match db_res {
+        Ok(()) => {
+            state
+                .db
+                .lock()
+                .unwrap()
+                .log_event("user_status_changed", "admin", &id, Some(&format!("status={}", req.status)))
+                .ok();
+            
+            // If activating a user, try to start their tenant(s)
+            if req.status == "active" {
+                let tenants = state.db.lock().unwrap()
+                    .list_tenants_by_owner(&id)
+                    .unwrap_or_default();
+                for tenant in &tenants {
+                    if tenant.status == "stopped" {
+                        // Lock manager first, then db — same order as start_tenant handler
+                        let mut mgr = state.manager.lock().unwrap();
+                        let db_ref = state.db.lock().unwrap();
+                        let _ = mgr.start_tenant(tenant, &state.bizclaw_bin, &db_ref);
+                        drop(db_ref);
+                        drop(mgr);
+                    }
+                }
+                if !tenants.is_empty() {
+                    sync_nginx_routing(&state);
+                }
+            }
+            
             Json(serde_json::json!({"ok": true}))
         }
         Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),

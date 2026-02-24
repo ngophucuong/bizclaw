@@ -9,6 +9,8 @@ pub struct Claims {
     pub sub: String, // user ID
     pub email: String,
     pub role: String,
+    #[serde(default)]
+    pub tenant_id: Option<String>,
     pub exp: usize,
 }
 
@@ -17,6 +19,7 @@ pub fn create_token(
     user_id: &str,
     email: &str,
     role: &str,
+    tenant_id: Option<&str>,
     secret: &str,
 ) -> Result<String, String> {
     let expiration = chrono::Utc::now()
@@ -28,6 +31,7 @@ pub fn create_token(
         sub: user_id.into(),
         email: email.into(),
         role: role.into(),
+        tenant_id: tenant_id.map(|s| s.to_string()),
         exp: expiration,
     };
 
@@ -68,11 +72,12 @@ mod tests {
     #[test]
     fn test_jwt_roundtrip() {
         let secret = "test-secret-key-bizclaw";
-        let token = create_token("user-1", "admin@test.com", "admin", secret).unwrap();
+        let token = create_token("user-1", "admin@test.com", "admin", Some("tenant-1"), secret).unwrap();
         let claims = validate_token(&token, secret).unwrap();
         assert_eq!(claims.sub, "user-1");
         assert_eq!(claims.email, "admin@test.com");
         assert_eq!(claims.role, "admin");
+        assert_eq!(claims.tenant_id, Some("tenant-1".to_string()));
     }
 
     #[test]

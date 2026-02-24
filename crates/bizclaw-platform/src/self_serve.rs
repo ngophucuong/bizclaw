@@ -81,26 +81,33 @@ pub async fn register_handler(
     let current_max = db.get_max_port().unwrap_or(Some(state.base_port)).unwrap_or(state.base_port);
     let new_port = std::cmp::max(current_max, state.base_port) + 1;
 
-    // Create tenant
-    match db.create_tenant(&req.company_name, &final_slug, new_port, "openai", "gpt-4o-mini", "free") {
+    // Create User first (status=pending — needs Super Admin approval)
+    let user_id = match db.create_user(&req.email, &hash, "admin", None) {
+        Ok(id) => id,
+        Err(e) => return Json(serde_json::json!({"ok": false, "error": format!("Failed to create user: {e}")})),
+    };
+    
+    // Set user status to pending
+    let _ = db.update_user_status(&user_id, "pending");
+
+    // Create tenant with owner_id linking to the user (tenant stays stopped until approved)
+    match db.create_tenant(&req.company_name, &final_slug, new_port, "openai", "gpt-4o-mini", "free", Some(&user_id)) {
         Ok(tenant) => {
-            // Create User and map to Tenant
-            match db.create_user(&req.email, &hash, "admin", Some(&tenant.id)) {
-                Ok(user_id) => {
-                    db.log_event("tenant_provisioned", "user", &user_id, Some(&format!("tenant={}", tenant.slug))).ok();
-                    
-                    // Start the new tenant
-                    drop(db);
-                    let mut mgr = state.manager.lock().unwrap();
-                    let db_ref = state.db.lock().unwrap();
-                    let _ = mgr.start_tenant(&tenant, &state.bizclaw_bin, &db_ref);
-                    
-                    Json(serde_json::json!({"ok": true, "slug": final_slug, "message": "Tenant created and started successfully"}))
-                }
-                Err(e) => Json(serde_json::json!({"ok": false, "error": format!("Failed to create user: {e}")})),
-            }
+            // Update user's tenant_id
+            let _ = db.update_user_tenant(&user_id, Some(&tenant.id));
+            db.log_event("saas_registration", "user", &user_id, Some(&format!("tenant={},status=pending", tenant.slug))).ok();
+            
+            Json(serde_json::json!({
+                "ok": true, 
+                "slug": final_slug, 
+                "message": "Đăng ký thành công! Tài khoản đang chờ duyệt bởi Admin. Bạn sẽ nhận được thông báo khi được kích hoạt."
+            }))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": format!("Failed to create tenant: {e}")})),
+        Err(e) => {
+            // Rollback: delete the user if tenant creation fails
+            let _ = db.delete_user_cascade(&user_id);
+            Json(serde_json::json!({"ok": false, "error": format!("Failed to create tenant: {e}")}))
+        }
     }
 }
 

@@ -635,8 +635,7 @@ async function doRegister(){
     const r=await res.json();
     if(r.ok) {
          errEl.style.color='var(--green)';
-         errEl.textContent=`SaaS khởi tạo thành công! Domain: ${r.slug}.bizclaw.vn`;
-         setTimeout(() => { showAuthBox('login-form-box'); document.getElementById('login-email').value = email; }, 3000);
+         errEl.textContent=r.message || 'Đăng ký thành công! Tài khoản đang chờ Admin duyệt.';
     } else {
          errEl.style.color='var(--red)';
          errEl.textContent=r.error;
@@ -941,28 +940,56 @@ async function loadUsers(){
       allTenants.forEach(t => { tenantMap[t.id] = t.name; });
     }
 
-    document.getElementById('users-list').innerHTML=users.map(u => `
-      <div class="card" style="margin-bottom:10px">
+    // Check if current user is super admin
+    const isSuperAdmin = isCurrentUserSuperAdmin();
+
+    document.getElementById('users-list').innerHTML=users.map(u => {
+      const statusCls = u.status==='active' ? 'running' : u.status==='pending' ? 'stopped' : 'error';
+      const statusLabel = u.status || 'active';
+      return `
+      <div class="card" style="margin-bottom:10px;${u.status==='pending'?'border-left:3px solid var(--yellow)':u.status==='suspended'?'border-left:3px solid var(--red)':''}">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <strong style="color:var(--accent)">${escapeHtml(u.email)}</strong>
             <span class="badge ${u.role==='admin'?'running':'stopped'}" style="margin-left:8px">${escapeHtml(u.role)}</span>
+            <span class="badge ${statusCls}" style="margin-left:4px">${statusLabel}</span>
             ${u.tenant_id ? `<span class="badge" style="margin-left:8px;background:var(--subtle);color:var(--text)">Tenant: ${escapeHtml(tenantMap[u.tenant_id] || u.tenant_id.slice(0,8))}</span>` : ''}
             <div style="font-size:11px;color:var(--muted);margin-top:4px">
               Created: ${timeAgo(u.created_at)} · ID: <code style="font-size:10px">${(u.id||'').slice(0,8)}…</code>
             </div>
           </div>
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${isSuperAdmin && u.status==='pending' ? `<button class="btn btn-primary btn-sm" onclick="updateUserStatus('${esc(u.id)}','active')">✅ Approve</button>` : ''}
+            ${isSuperAdmin && u.status==='active' && u.email!=='admin@bizclaw.vn' ? `<button class="btn btn-outline btn-sm" onclick="updateUserStatus('${esc(u.id)}','suspended')">⏸ Suspend</button>` : ''}
+            ${isSuperAdmin && u.status==='suspended' ? `<button class="btn btn-primary btn-sm" onclick="updateUserStatus('${esc(u.id)}','active')">✅ Reactivate</button>` : ''}
             <button class="btn btn-outline btn-sm" onclick="showResetPasswordModal('${esc(u.id)}','${esc(u.email)}')">🔑 Reset Pass</button>
-            <button class="btn btn-outline btn-sm" onclick="showAssignTenantModal('${esc(u.id)}','${esc(u.email)}')">🏢 Assign Tenant</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.id)}','${esc(u.email)}')" title="Delete User">✕</button>
+            ${isSuperAdmin ? `<button class="btn btn-outline btn-sm" onclick="showAssignTenantModal('${esc(u.id)}','${esc(u.email)}')">🏢 Assign Tenant</button>` : ''}
+            ${isSuperAdmin && u.email!=='admin@bizclaw.vn' ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${esc(u.id)}','${esc(u.email)}')" title="Delete User">✕</button>` : ''}
           </div>
         </div>
       </div>
-    `).join('');
+    `;}).join('');
   } catch(e) {
     document.getElementById('users-list').innerHTML='<p style="color:var(--red);font-size:13px">❌ Failed to load users</p>';
   }
+}
+
+function isCurrentUserSuperAdmin() {
+  try {
+    if(!authToken) return false;
+    const payload = JSON.parse(atob(authToken.split('.')[1]));
+    return payload.email === 'admin@bizclaw.vn' || payload.role === 'superadmin';
+  } catch { return false; }
+}
+
+async function updateUserStatus(id, status) {
+  const labels = {active: 'kích hoạt', suspended: 'tạm khóa'};
+  if(!confirm(`Bạn muốn ${labels[status]||status} user này?`)) return;
+  try {
+    const r = await(await authFetch(API+'/users/'+id+'/status',{method:'PUT',body:JSON.stringify({status})})).json();
+    if(r.ok) { toast(`✅ User status → ${status}`); loadUsers(); }
+    else { toast('❌ '+r.error,'error'); }
+  } catch(e) { toast('❌ '+e.message,'error'); }
 }
 
 async function fetchTenantsForSelect(selectId) {
@@ -1034,10 +1061,10 @@ async function createUser(){
   }catch(e){toast('❌ '+e.message,'error');}
 }
 async function deleteUser(id,email){
-  if(!confirm('Delete user "'+email+'"? This cannot be undone.'))return;
+  if(!confirm(`Xóa user "${email}"? TẤT CẢ tenant và dữ liệu của user này sẽ bị xóa vĩnh viễn!`))return;
   try{
     const r=await(await authFetch(API+'/users/'+id,{method:'DELETE'})).json();
-    if(r.ok){toast('✅ User deleted');loadUsers();}
+    if(r.ok){toast(`✅ User deleted (${r.tenants_deleted||0} tenants removed)`);loadUsers();}
     else{toast('❌ '+r.error,'error');}
   }catch(e){toast('❌ '+e.message,'error');}
 }

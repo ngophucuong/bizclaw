@@ -1,0 +1,6 @@
+Script started on Tue Feb 24 14:22:51 2026
+[1m[7m%[27m[1m[0m                                                                                      [0m[27m[24m[J(base) nguyenduchoai@HoaiNguyen BizClaw % [K[?2004h[?2004l
+[1m[7m%[27m[1m[0m                                                                                      [0m[27m[24m[J(base) nguyenduchoai@HoaiNguyen BizClaw % [K[?2004hsssh root@116.118.2.98 'grep -q "location /ad [Kmmin/" /etc/nginx/sites-enabled/bizclaw && echo "already exists" || echo "needs adding" [K'[?2004l
+needs adding
+[1m[7m%[27m[1m[0m                                                                                      [0m[27m[24m[J(base) nguyenduchoai@HoaiNguyen BizClaw % [K[?2004h[?2004l
+[1m[7m%[27m[1m[0m                                                                                      [0m[27m[24m[J(base) nguyenduchoai@HoaiNguyen BizClaw % [K[?2004h

@@ -267,13 +267,23 @@ jobs:
             
             echo "🔨 Building release..."
             source "$HOME/.cargo/env"
+            # Force clean rebuild of platform components
+            rm -rf target/release/.fingerprint/bizclaw-platform-* target/release/deps/bizclaw_platform-*
             cargo build --release --bin bizclaw --bin bizclaw-platform
             
             echo "🔄 Deploying binaries..."
-            systemctl stop bizclaw-platform
-            sleep 1
+            systemctl stop bizclaw-platform || true
+            sleep 3
+            # Remove old binaries to avoid "Text file busy"
+            rm -f /usr/local/bin/bizclaw.old /usr/local/bin/bizclaw-platform.old
+            mv /usr/local/bin/bizclaw /usr/local/bin/bizclaw.old 2>/dev/null || true
+            mv /usr/local/bin/bizclaw-platform /usr/local/bin/bizclaw-platform.old 2>/dev/null || true
             cp target/release/bizclaw /usr/local/bin/bizclaw
             cp target/release/bizclaw-platform /usr/local/bin/bizclaw-platform
+            
+            # Set timezone
+            timedatectl set-timezone Asia/Ho_Chi_Minh 2>/dev/null || true
+            
             systemctl start bizclaw-platform
             
             echo "✅ Verifying..."

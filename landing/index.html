@@ -193,6 +193,7 @@ footer a{color:var(--accent2);text-decoration:none}
       <a href="#how" data-vi="Bắt đầu" data-en="Get Started">Bắt đầu</a>
       <a href="#register" data-vi="Đăng ký" data-en="Register">Đăng ký</a>
       <button class="lang-toggle" onclick="toggleLang()">🌐 EN</button>
+      <a href="https://apps.bizclaw.vn" class="nav-cta" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-right:8px" data-vi="🔑 Đăng nhập" data-en="🔑 Login">🔑 Đăng nhập</a>
       <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="nav-cta" data-vi="⭐ GitHub" data-en="⭐ GitHub">⭐ GitHub</a>
     </div>
   </div>
@@ -776,9 +777,11 @@ async function doLandingRegister() {
       successEl.style.display = 'block';
       document.getElementById('register-success-msg').textContent = 
         currentLang === 'vi' 
-          ? `Domain: ${r.slug}.bizclaw.vn — Đăng nhập với email ${email}`
-          : `Domain: ${r.slug}.bizclaw.vn — Login with ${email}`;
-      document.getElementById('register-success-link').href = `https://${r.slug}.bizclaw.vn`;
+          ? `Tài khoản đang chờ Admin duyệt. Bạn sẽ nhận thông báo khi được kích hoạt.`
+          : `Your account is pending admin approval. You will be notified when activated.`;
+      document.getElementById('register-success-link').href = 'https://apps.bizclaw.vn';
+      document.getElementById('register-success-link').textContent = 
+        currentLang === 'vi' ? '🔑 Đăng nhập Admin Dashboard' : '🔑 Go to Admin Dashboard';
     } else {
       errEl.style.color = '#f85149';
       errEl.textContent = r.error || 'Registration failed';

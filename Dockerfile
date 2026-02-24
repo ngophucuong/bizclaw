@@ -7,7 +7,11 @@
 FROM rust:1.82-bookworm AS builder
 
 WORKDIR /build
-COPY . .
+
+# Copy workspace Cargo files first (for dependency caching)
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+COPY src/ src/
 
 # Build release binaries
 RUN cargo build --release --bin bizclaw --bin bizclaw-platform
@@ -26,9 +30,10 @@ COPY --from=builder /build/target/release/bizclaw-platform /usr/local/bin/bizcla
 # Create data directory
 RUN mkdir -p /root/.bizclaw
 
-# Environment
+# Environment — GMT+7
 ENV BIZCLAW_CONFIG=/root/.bizclaw/config.toml
 ENV RUST_LOG=info
+ENV TZ=Asia/Ho_Chi_Minh
 
 # Expose ports: platform admin (3001) + tenant gateways (10001-10010)
 EXPOSE 3001 10001 10002 10003 10004 10005
