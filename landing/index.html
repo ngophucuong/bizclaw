@@ -193,7 +193,7 @@ footer a{color:var(--accent2);text-decoration:none}
       <a href="#how" data-vi="Bắt đầu" data-en="Get Started">Bắt đầu</a>
       <a href="#register" data-vi="Đăng ký" data-en="Register">Đăng ký</a>
       <button class="lang-toggle" onclick="toggleLang()">🌐 EN</button>
-      <a href="https://apps.bizclaw.vn" class="nav-cta" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-right:8px" data-vi="🔑 Đăng nhập" data-en="🔑 Login">🔑 Đăng nhập</a>
+      <a href="#" onclick="goLogin()" class="nav-cta" style="background:transparent;border:1px solid var(--border);color:var(--text);margin-right:8px" data-vi="🔑 Đăng nhập" data-en="🔑 Login">🔑 Đăng nhập</a>
       <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="nav-cta" data-vi="⭐ GitHub" data-en="⭐ GitHub">⭐ GitHub</a>
     </div>
   </div>
@@ -476,50 +476,33 @@ footer a{color:var(--accent2);text-decoration:none}
       </div>
     </div>
 
-    <!-- Install Box -->
+    <!-- SaaS CTA Box -->
     <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;text-align:center;margin-top:32px;position:relative;overflow:hidden" class="fade-up">
       <div style="position:absolute;top:0;left:0;right:0;height:4px;background:var(--grad1)"></div>
       <div style="font-size:48px;margin-bottom:12px">🚀</div>
-      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:800;margin-bottom:12px;color:#fff" data-vi="100% Tự Host - Không phụ thuộc Cloud" data-en="100% Self-Hosted - Cloud Independent">100% Tự Host - Không phụ thuộc Cloud</h3>
-      <p style="color:var(--muted);font-size:15px;margin-bottom:24px;max-width:700px;margin-inline:auto;line-height:1.6" data-vi="Tuyệt đối KHÔNG cần tạo tài khoản trên server trung gian. KHÔNG tự động upload dữ liệu lên cloud bên thứ ba. Anh em clone code về, build và chạy thẳng trên máy cá nhân, VPS hoặc Raspberry Pi. Mã nguồn mở, Local-First, quyền kiểm soát toàn diện nằm trong tay anh em!" data-en="Absolutely NO need to create an account on third-party servers. NO automatic cloud data uploads. Clone the code, build, and run directly on your PC, VPS, or Raspberry Pi. Open source, Local-First, total control is in your hands!">Tuyệt đối KHÔNG cần tạo tài khoản trên server trung gian. KHÔNG tự động upload dữ liệu lên cloud bên thứ ba. Anh em clone code về, build và chạy thẳng trên máy cá nhân, VPS hoặc Raspberry Pi. Mã nguồn mở, Local-First, quyền kiểm soát toàn diện nằm trong tay anh em!</p>
+      <h3 style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:800;margin-bottom:12px;color:#fff" data-vi="Nền tảng AI Agent cho Doanh nghiệp" data-en="AI Agent Platform for Business">Nền tảng AI Agent cho Doanh nghiệp</h3>
+      <p style="color:var(--muted);font-size:15px;margin-bottom:24px;max-width:700px;margin-inline:auto;line-height:1.6" data-vi="Đăng ký miễn phí — có hệ thống AI Agent riêng ngay lập tức. Nền tảng cloud, sử dụng ngay trên trình duyệt, không cần cài đặt." data-en="Register for free — get your own AI Agent system instantly. Cloud platform, use directly in browser, no installation needed.">Đăng ký miễn phí — có hệ thống AI Agent riêng ngay lập tức. Nền tảng cloud, sử dụng ngay trên trình duyệt, không cần cài đặt.</p>
       
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:24px;text-align:left">
         <div style="background:var(--surface);padding:16px;border-radius:12px;border:1px solid rgba(52,211,153,.2)">
-          <div style="color:var(--green);font-weight:700;margin-bottom:4px;font-size:14px">🔒 Local & Bảo Mật</div>
-          <div style="font-size:13px;color:var(--muted)">Dữ liệu chat, API Keys lưu mã hoá cục bộ trên ổ cứng của riêng anh em.</div>
+          <div style="color:var(--green);font-weight:700;margin-bottom:4px;font-size:14px" data-vi="🔒 Dữ liệu riêng tư" data-en="🔒 Private Data">🔒 Dữ liệu riêng tư</div>
+          <div style="font-size:13px;color:var(--muted)" data-vi="Mỗi tài khoản có tenant riêng biệt, dữ liệu hoàn toàn cách ly." data-en="Each account gets its own isolated tenant with fully separated data.">Mỗi tài khoản có tenant riêng biệt, dữ liệu hoàn toàn cách ly.</div>
         </div>
         <div style="background:var(--surface);padding:16px;border-radius:12px;border:1px solid rgba(34,211,238,.2)">
-          <div style="color:var(--cyan);font-weight:700;margin-bottom:4px;font-size:14px">🌐 Chạy Độc Lập</div>
-          <div style="font-size:13px;color:var(--muted)">Không token trung gian, không bị khóa quyền chức năng từ server mẹ.</div>
+          <div style="color:var(--cyan);font-weight:700;margin-bottom:4px;font-size:14px" data-vi="🌐 Dùng ngay trên trình duyệt" data-en="🌐 Use in browser">🌐 Dùng ngay trên trình duyệt</div>
+          <div style="font-size:13px;color:var(--muted)" data-vi="Không cần cài đặt — đăng ký xong, Admin duyệt và bạn có hệ thống ngay." data-en="No installation — register, get approved by Admin, and your system is ready.">Không cần cài đặt — đăng ký xong, Admin duyệt và bạn có hệ thống ngay.</div>
         </div>
         <div style="background:var(--surface);padding:16px;border-radius:12px;border:1px solid rgba(251,146,60,.2)">
-          <div style="color:var(--orange);font-weight:700;margin-bottom:4px;font-size:14px">🧠 Offline Mode</div>
-          <div style="font-size:13px;color:var(--muted)">Hỗ trợ Brain Engine kéo mô hình AI nhỏ để chạy hoàn toàn Offline.</div>
+          <div style="color:var(--orange);font-weight:700;margin-bottom:4px;font-size:14px" data-vi="⚡ Miễn phí" data-en="⚡ Free">⚡ Miễn phí</div>
+          <div style="font-size:13px;color:var(--muted)" data-vi="Đăng ký miễn phí, không cần thẻ tín dụng. Dùng API key riêng của bạn." data-en="Free registration, no credit card. Use your own API keys.">Đăng ký miễn phí, không cần thẻ tín dụng. Dùng API key riêng của bạn.</div>
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-        <div style="background:#0d1117;border-radius:12px;padding:16px;font-family:'Space Grotesk',monospace;font-size:13px;color:#58a6ff;text-align:left;border:1px solid rgba(255,255,255,.05)">
-          <div style="color:var(--green);font-weight:700;margin-bottom:8px;font-size:12px">📥 METHOD 1: One-Click Install</div>
-          <span style="color:#8b949e">$</span> curl -sSL https://bizclaw.vn/install.sh | sudo bash
-        </div>
-        <div style="background:#0d1117;border-radius:12px;padding:16px;font-family:'Space Grotesk',monospace;font-size:13px;color:#58a6ff;text-align:left;border:1px solid rgba(255,255,255,.05)">
-          <div style="color:var(--cyan);font-weight:700;margin-bottom:8px;font-size:12px">🐳 METHOD 2: Docker</div>
-          <span style="color:#8b949e">$</span> git clone https://github.com/nguyenduchoai/bizclaw<br>
-          <span style="color:#8b949e">$</span> cd bizclaw && docker-compose up -d
-        </div>
-      </div>
-      <div style="background:#0d1117;border-radius:12px;padding:16px 20px;font-family:'Space Grotesk',monospace;font-size:13px;color:#58a6ff;text-align:left;position:relative;margin-bottom:20px;overflow-x:auto;border:1px solid rgba(255,255,255,.05)">
-        <div style="color:var(--orange);font-weight:700;margin-bottom:8px;font-size:12px">🔧 METHOD 3: Build from Source</div>
-        <span style="color:#8b949e">$</span> git clone https://github.com/nguyenduchoai/bizclaw.git<br>
-        <span style="color:#8b949e">$</span> cd bizclaw && cargo build --release<br>
-        <span style="color:#8b949e">$</span> ./target/release/bizclaw-platform --port 3001
-      </div>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="btn-primary" data-vi="⭐ Lấy Source (GitHub)" data-en="⭐ Get Source (GitHub)">⭐ Lấy Source (GitHub)</a>
-        <a href="/docs.html" class="btn-secondary" data-vi="📖 Hướng dẫn" data-en="📖 Documentation">📖 Hướng dẫn</a>
+        <a href="#register" class="btn-primary" data-vi="🚀 Đăng ký miễn phí" data-en="🚀 Register for Free">🚀 Đăng ký miễn phí</a>
+        <a href="https://github.com/nguyenduchoai/bizclaw" target="_blank" class="btn-secondary" data-vi="⭐ Tự Host (GitHub)" data-en="⭐ Self-Host (GitHub)">⭐ Tự Host (GitHub)</a>
       </div>
-      <p style="color:var(--muted);font-size:12px;margin-top:16px" data-vi="💻 Chạy trên Linux, macOS, Windows, Raspberry Pi — 3 cách cài đặt, phù hợp mọi trình độ." data-en="💻 Runs on Linux, macOS, Windows, Raspberry Pi — 3 installation methods, suitable for all skill levels.">💻 Chạy trên Linux, macOS, Windows, Raspberry Pi — 3 cách cài đặt, phù hợp mọi trình độ.</p>
+      <p style="color:var(--muted);font-size:12px;margin-top:16px" data-vi="💻 Nền tảng cloud — sử dụng ngay trên trình duyệt, không cần cài đặt." data-en="💻 Cloud platform — use directly in browser, no installation needed.">💻 Nền tảng cloud — sử dụng ngay trên trình duyệt, không cần cài đặt.</p>
     </div>
   </div>
 </section>
@@ -763,8 +746,11 @@ async function doLandingRegister() {
   errEl.style.display = 'block';
   
   try {
-    const apiBase = location.hostname === 'bizclaw.vn' ? 'https://bizclaw.vn' : location.origin;
-    const res = await fetch(apiBase + '/admin/api/admin/register', {
+    const host = location.hostname;
+    // Auto-detect domain: bizclaw.vn, viagent.vn, or localhost
+    const domain = host.endsWith('bizclaw.vn') ? 'bizclaw.vn' : host.endsWith('viagent.vn') ? 'viagent.vn' : null;
+    const apiBase = domain ? `https://apps.${domain}` : location.origin;
+    const res = await fetch(apiBase + '/api/admin/register', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({company_name, email, password})
@@ -779,7 +765,8 @@ async function doLandingRegister() {
         currentLang === 'vi' 
           ? `Tài khoản đang chờ Admin duyệt. Bạn sẽ nhận thông báo khi được kích hoạt.`
           : `Your account is pending admin approval. You will be notified when activated.`;
-      document.getElementById('register-success-link').href = 'https://apps.bizclaw.vn';
+      const dashboardUrl = domain ? `https://apps.${domain}` : location.origin;
+      document.getElementById('register-success-link').href = dashboardUrl;
       document.getElementById('register-success-link').textContent = 
         currentLang === 'vi' ? '🔑 Đăng nhập Admin Dashboard' : '🔑 Go to Admin Dashboard';
     } else {
@@ -790,6 +777,12 @@ async function doLandingRegister() {
     errEl.style.color = '#f85149';
     errEl.textContent = e.message;
   }
+}
+// ═══ Domain-aware Login ═══
+function goLogin() {
+  const h = location.hostname;
+  const domain = h.endsWith('bizclaw.vn') ? 'bizclaw.vn' : h.endsWith('viagent.vn') ? 'viagent.vn' : null;
+  window.location.href = domain ? `https://apps.${domain}` : '/';
 }
 
 // ═══ Sponsor QR Modal ═══
