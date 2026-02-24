@@ -17,6 +17,8 @@ pub struct AdminState {
     pub jwt_secret: String,
     pub bizclaw_bin: String,
     pub base_port: u16,
+    /// Domain name for this platform instance (e.g. "bizclaw.vn" or "viagent.vn")
+    pub domain: String,
     /// Rate limiter: email → (attempt_count, first_attempt_time)
     pub login_attempts: Mutex<std::collections::HashMap<String, (u32, std::time::Instant)>>,
 }
@@ -144,45 +146,51 @@ impl AdminServer {
 
 // ── Nginx Sync ─────────────────────────────────────
 
-/// Regenerate /etc/nginx/conf.d/bizclaw-tenants.conf from the DB
+/// Regenerate /etc/nginx/conf.d/{domain}-tenants.conf from the DB
 /// and reload nginx so new/removed tenants are routed correctly.
 fn sync_nginx_routing(state: &AdminState) {
+    let domain = &state.domain;
     let tenants = match state.db.lock().unwrap().list_tenants() {
         Ok(t) => t,
         Err(e) => {
-            tracing::warn!("nginx-sync: failed to list tenants: {e}");
+            tracing::warn!("nginx-sync[{domain}]: failed to list tenants: {e}");
             return;
         }
     };
 
+    // Use domain prefix for map variable names to avoid conflicts
+    let domain_slug = domain.replace('.', "_");
     let mut map_entries = String::new();
     for t in &tenants {
         map_entries.push_str(&format!("    {}      {};\n", t.slug, t.port));
     }
 
+    // Escape dots in domain for nginx regex
+    let domain_regex = domain.replace('.', "\\.");
+
     let conf = format!(
-        r#"# BizClaw Dynamic Tenant Routing (auto-generated)
-map $subdomain $tenant_port {{
+        r#"# {domain} Dynamic Tenant Routing (auto-generated)
+map $subdomain_{domain_slug} $tenant_port_{domain_slug} {{
     default   0;
 {map_entries}}}
 
 server {{
     listen 80;
     listen 443 ssl;
-    server_name ~^(?<subdomain>[^.]+)\.bizclaw\.vn$;
+    server_name ~^(?<subdomain_{domain_slug}>[^.]+)\.{domain_regex}$;
 
-    ssl_certificate /etc/letsencrypt/live/bizclaw.vn/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/bizclaw.vn/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/{domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{domain}/privkey.pem;
 
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
 
-    if ($tenant_port = 0) {{
+    if ($tenant_port_{domain_slug} = 0) {{
         return 404;
     }}
 
     location / {{
-        proxy_pass http://127.0.0.1:$tenant_port;
+        proxy_pass http://127.0.0.1:$tenant_port_{domain_slug};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -196,9 +204,9 @@ server {{
 "#
     );
 
-    let conf_path = "/etc/nginx/conf.d/bizclaw-tenants.conf";
-    if let Err(e) = std::fs::write(conf_path, &conf) {
-        tracing::warn!("nginx-sync: failed to write {conf_path}: {e}");
+    let conf_path = format!("/etc/nginx/conf.d/{domain_slug}-tenants.conf");
+    if let Err(e) = std::fs::write(&conf_path, &conf) {
+        tracing::warn!("nginx-sync[{domain}]: failed to write {conf_path}: {e}");
         return;
     }
 
@@ -208,14 +216,14 @@ server {{
                 .args(["reload", "nginx"])
                 .output()
             {
-                Ok(_) => tracing::info!("nginx-sync: {} tenants synced, nginx reloaded", tenants.len()),
-                Err(e) => tracing::warn!("nginx-sync: reload failed: {e}"),
+                Ok(_) => tracing::info!("nginx-sync[{domain}]: {} tenants synced, nginx reloaded", tenants.len()),
+                Err(e) => tracing::warn!("nginx-sync[{domain}]: reload failed: {e}"),
             }
         }
         Ok(out) => {
-            tracing::warn!("nginx-sync: config test failed: {}", String::from_utf8_lossy(&out.stderr));
+            tracing::warn!("nginx-sync[{domain}]: config test failed: {}", String::from_utf8_lossy(&out.stderr));
         }
-        Err(e) => tracing::warn!("nginx-sync: nginx -t failed: {e}"),
+        Err(e) => tracing::warn!("nginx-sync[{domain}]: nginx -t failed: {e}"),
     }
 }
 

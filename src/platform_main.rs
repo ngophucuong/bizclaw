@@ -44,6 +44,10 @@ struct Cli {
     #[arg(long, default_value = "bizclaw-platform-secret-2026")]
     jwt_secret: String,
 
+    /// Domain name for this platform instance
+    #[arg(long, default_value = "bizclaw.vn")]
+    domain: String,
+
     /// Create default admin user and exit
     #[arg(long)]
     init_admin: bool,
@@ -151,6 +155,7 @@ async fn main() -> Result<()> {
         jwt_secret,
         bizclaw_bin: cli.bizclaw_bin.clone(),
         base_port: cli.base_port,
+        domain: cli.domain.clone(),
         login_attempts: Mutex::new(std::collections::HashMap::new()),
     });
 
