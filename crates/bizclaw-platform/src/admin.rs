@@ -142,6 +142,83 @@ impl AdminServer {
     }
 }
 
+// ── Nginx Sync ─────────────────────────────────────
+
+/// Regenerate /etc/nginx/conf.d/bizclaw-tenants.conf from the DB
+/// and reload nginx so new/removed tenants are routed correctly.
+fn sync_nginx_routing(state: &AdminState) {
+    let tenants = match state.db.lock().unwrap().list_tenants() {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!("nginx-sync: failed to list tenants: {e}");
+            return;
+        }
+    };
+
+    let mut map_entries = String::new();
+    for t in &tenants {
+        map_entries.push_str(&format!("    {}      {};\n", t.slug, t.port));
+    }
+
+    let conf = format!(
+        r#"# BizClaw Dynamic Tenant Routing (auto-generated)
+map $subdomain $tenant_port {{
+    default   0;
+{map_entries}}}
+
+server {{
+    listen 80;
+    listen 443 ssl;
+    server_name ~^(?<subdomain>[^.]+)\.bizclaw\.vn$;
+
+    ssl_certificate /etc/letsencrypt/live/bizclaw.vn/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bizclaw.vn/privkey.pem;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    if ($tenant_port = 0) {{
+        return 404;
+    }}
+
+    location / {{
+        proxy_pass http://127.0.0.1:$tenant_port;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+    }}
+}}
+"#
+    );
+
+    let conf_path = "/etc/nginx/conf.d/bizclaw-tenants.conf";
+    if let Err(e) = std::fs::write(conf_path, &conf) {
+        tracing::warn!("nginx-sync: failed to write {conf_path}: {e}");
+        return;
+    }
+
+    match std::process::Command::new("nginx").args(["-t"]).output() {
+        Ok(out) if out.status.success() => {
+            match std::process::Command::new("systemctl")
+                .args(["reload", "nginx"])
+                .output()
+            {
+                Ok(_) => tracing::info!("nginx-sync: {} tenants synced, nginx reloaded", tenants.len()),
+                Err(e) => tracing::warn!("nginx-sync: reload failed: {e}"),
+            }
+        }
+        Ok(out) => {
+            tracing::warn!("nginx-sync: config test failed: {}", String::from_utf8_lossy(&out.stderr));
+        }
+        Err(e) => tracing::warn!("nginx-sync: nginx -t failed: {e}"),
+    }
+}
+
 // ── API Handlers ────────────────────────────────────
 
 async fn get_stats(State(state): State<Arc<AdminState>>) -> Json<serde_json::Value> {
@@ -222,6 +299,7 @@ async fn create_tenant(
                     Some(&format!("slug={}", req.slug)),
                 )
                 .ok();
+            sync_nginx_routing(&state);
             Json(serde_json::json!({"ok": true, "tenant": tenant}))
         }
         Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
@@ -251,6 +329,7 @@ async fn delete_tenant(
                 .unwrap()
                 .log_event("tenant_deleted", "admin", &id, None)
                 .ok();
+            sync_nginx_routing(&state);
             Json(serde_json::json!({"ok": true}))
         }
         Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
@@ -283,6 +362,7 @@ async fn start_tenant(
                 .unwrap()
                 .log_event("tenant_started", "admin", &id, None)
                 .ok();
+            sync_nginx_routing(&state);
             Json(serde_json::json!({"ok": true, "pid": pid}))
         }
         Err(e) => {
@@ -315,6 +395,7 @@ async fn stop_tenant(
         .unwrap()
         .log_event("tenant_stopped", "admin", &id, None)
         .ok();
+    sync_nginx_routing(&state);
     Json(serde_json::json!({"ok": true}))
 }
 
