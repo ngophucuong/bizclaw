@@ -15,6 +15,7 @@ fn safe_truncate(s: &str, max_bytes: usize) -> &str {
 }
 
 /// Validate a name (agent, channel, etc.) — allow Unicode but reject dangerous chars.
+#[allow(dead_code)]
 fn validate_name(name: &str) -> std::result::Result<(), String> {
     if name.is_empty() { return Err("Name cannot be empty".into()); }
     if name.len() > 100 { return Err("Name too long (max 100 chars)".into()); }

@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
+use axum::extract::DefaultBodyLimit;
 
 /// Shared state for the gateway server.
 #[derive(Clone)]
@@ -351,6 +352,8 @@ pub fn build_router_from_arc(shared: Arc<AppState>) -> Router {
         .layer(TraceLayer::new_for_http())
         // Security headers
         .layer(axum::middleware::from_fn(security_headers))
+        // H1 FIX: Limit request body size (5MB — allows file uploads for knowledge base)
+        .layer(DefaultBodyLimit::max(5_242_880))
         .with_state(shared)
 }
 

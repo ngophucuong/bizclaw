@@ -128,6 +128,8 @@ impl AdminServer {
         let spa_fallback = Router::new().fallback(get(admin_dashboard_page));
 
         // CORS — configurable via BIZCLAW_CORS_ORIGINS env var
+        // H4 FIX: Default to localhost-only CORS (not Any) for security
+        let cors_methods = [axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE, axum::http::Method::OPTIONS];
         let cors = match std::env::var("BIZCLAW_CORS_ORIGINS") {
             Ok(origins) if !origins.is_empty() => {
                 let allowed: Vec<_> = origins.split(',')
@@ -135,18 +137,29 @@ impl AdminServer {
                     .collect();
                 CorsLayer::new()
                     .allow_origin(allowed)
-                    .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE, axum::http::Method::OPTIONS])
+                    .allow_methods(cors_methods)
                     .allow_headers(Any)
             }
-            _ => CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE, axum::http::Method::OPTIONS])
-                .allow_headers(Any),
+            _ => {
+                // Dev mode: allow Any; Production: restrict to same-origin
+                if std::env::var("BIZCLAW_BIND_ALL").unwrap_or_default() == "1" {
+                    CorsLayer::new()
+                        .allow_origin(Any)
+                        .allow_methods(cors_methods)
+                        .allow_headers(Any)
+                } else {
+                    // Production: only allow requests from same origin (no CORS header = same-origin only)
+                    CorsLayer::new()
+                        .allow_methods(cors_methods)
+                        .allow_headers(Any)
+                }
+            }
         };
 
         protected
             .merge(public)
             .merge(spa_fallback)
+            .layer(axum::middleware::from_fn(platform_security_headers))
             .layer(cors)
             .layer(DefaultBodyLimit::max(1_048_576)) // 1MB max request body
             .with_state(state)
@@ -177,7 +190,29 @@ impl AdminServer {
     }
 }
 
+// ── Security Headers (C1 FIX) ──────────────────────────
+
+/// Security headers middleware — HSTS, CSP, X-Frame-Options, X-Content-Type-Options.
+/// Matches Gateway security headers for parity.
+async fn platform_security_headers(
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let mut response = next.run(req).await;
+    let headers = response.headers_mut();
+    headers.insert("X-Content-Type-Options", "nosniff".parse().unwrap());
+    headers.insert("X-Frame-Options", "SAMEORIGIN".parse().unwrap());
+    headers.insert("X-XSS-Protection", "1; mode=block".parse().unwrap());
+    headers.insert("Referrer-Policy", "strict-origin-when-cross-origin".parse().unwrap());
+    // HSTS — only when behind reverse proxy (production)
+    if std::env::var("BIZCLAW_BIND_ALL").unwrap_or_default() != "1" {
+        headers.insert("Strict-Transport-Security", "max-age=31536000; includeSubDomains".parse().unwrap());
+    }
+    response
+}
+
 // ── Nginx Sync ─────────────────────────────────────
+
 
 /// Regenerate /etc/nginx/conf.d/{domain}-tenants.conf from the DB
 /// and reload nginx so new/removed tenants are routed correctly.

@@ -194,9 +194,8 @@ async fn main() -> Result<()> {
                     env!("CARGO_PKG_VERSION")
                 );
                 println!(
-                    "   Provider: {} | Model: {}",
-                    agent.provider_name(),
-                    "default"
+                    "   Provider: {} | Model: default",
+                    agent.provider_name()
                 );
                 println!("   Type /quit to exit, /clear to reset conversation\n");
 
@@ -251,15 +250,14 @@ async fn main() -> Result<()> {
                     }
 
                     // Start configured channels
-                    if let Some(zalo_config) = &config.channel.zalo {
-                        if zalo_config.enabled {
+                    if let Some(zalo_config) = &config.channel.zalo
+                        && zalo_config.enabled {
                             println!("  📱 Zalo ({}) channel starting...", zalo_config.mode);
                             let mut zalo =
                                 bizclaw_channels::zalo::ZaloChannel::new(zalo_config.clone());
                             use bizclaw_core::traits::Channel;
                             zalo.connect().await?;
                         }
-                    }
 
                     println!("\nChannels are running. Press Ctrl+C to stop.");
                     tokio::signal::ctrl_c().await?;
@@ -592,8 +590,8 @@ async fn main() -> Result<()> {
             let agent_config = config.clone();
 
             // Telegram channel
-            if let Some(tg_config) = &channel_config.telegram {
-                if tg_config.enabled && !tg_config.bot_token.is_empty() {
+            if let Some(tg_config) = &channel_config.telegram
+                && tg_config.enabled && !tg_config.bot_token.is_empty() {
                     println!("   🤖 Telegram: starting bot...");
                     let tg = bizclaw_channels::telegram::TelegramChannel::new(
                         bizclaw_channels::telegram::TelegramConfig {
@@ -607,11 +605,10 @@ async fn main() -> Result<()> {
                         run_channel_loop("telegram", tg.start_polling(), cfg_clone).await;
                     });
                 }
-            }
 
             // Discord channel
-            if let Some(dc_config) = &channel_config.discord {
-                if dc_config.enabled && !dc_config.bot_token.is_empty() {
+            if let Some(dc_config) = &channel_config.discord
+                && dc_config.enabled && !dc_config.bot_token.is_empty() {
                     println!("   🎮 Discord: starting bot...");
                     let dc = bizclaw_channels::discord::DiscordChannel::new(
                         bizclaw_channels::discord::DiscordConfig {
@@ -625,11 +622,10 @@ async fn main() -> Result<()> {
                         run_channel_loop("discord", dc.start_gateway(), cfg_clone).await;
                     });
                 }
-            }
 
             // Email channel
-            if let Some(ref email_cfg) = channel_config.email {
-                if email_cfg.enabled && !email_cfg.email.is_empty() {
+            if let Some(ref email_cfg) = channel_config.email
+                && email_cfg.enabled && !email_cfg.email.is_empty() {
                     println!("   📧 Email: starting listener ({})...", email_cfg.email);
                     let em = bizclaw_channels::email::EmailChannel::new(
                         bizclaw_channels::email::EmailConfig {
@@ -647,11 +643,10 @@ async fn main() -> Result<()> {
                         run_channel_loop("email", em.start_polling(), cfg_clone).await;
                     });
                 }
-            }
 
             // Zalo channel (Personal mode — requires cookie)
-            if let Some(ref zalo_cfg) = channel_config.zalo {
-                if zalo_cfg.enabled {
+            if let Some(ref zalo_cfg) = channel_config.zalo
+                && zalo_cfg.enabled {
                     let cookie_path = &zalo_cfg.personal.cookie_path;
                     let expanded_path = if cookie_path.starts_with("~/") {
                         std::env::var("HOME")
@@ -677,14 +672,12 @@ async fn main() -> Result<()> {
                         println!("   💬 Zalo: skipped (no cookie at {})", cookie_path);
                     }
                 }
-            }
 
             // WhatsApp channel (webhook-based — no background task needed)
-            if let Some(ref wa_cfg) = channel_config.whatsapp {
-                if wa_cfg.enabled && !wa_cfg.access_token.is_empty() {
+            if let Some(ref wa_cfg) = channel_config.whatsapp
+                && wa_cfg.enabled && !wa_cfg.access_token.is_empty() {
                     println!("   📱 WhatsApp: enabled (webhook at /api/v1/webhook/whatsapp)");
                 }
-            }
 
             println!();
 
@@ -835,7 +828,7 @@ async fn run_init_wizard() -> Result<()> {
     // Also set legacy top-level fields for backward compatibility
     config.default_provider = provider.into();
     config.default_model = model.clone();
-    config.identity.name = bot_name.into();
+    config.identity.name = bot_name;
 
     // Save
     config.save()?;
