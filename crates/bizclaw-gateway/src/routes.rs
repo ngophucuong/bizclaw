@@ -6,6 +6,12 @@ use std::sync::Arc;
 use super::server::AppState;
 use super::db::GatewayDb;
 
+/// Return sanitized error — logs real error server-side, sends generic message to client.
+fn internal_error(context: &str, e: impl std::fmt::Display) -> Json<serde_json::Value> {
+    tracing::error!("[{context}] {e}");
+    Json(serde_json::json!({"ok": false, "error": "An internal error occurred"}))
+}
+
 /// Safely truncate a string at a character boundary (UTF-8 safe).
 fn safe_truncate(s: &str, max_bytes: usize) -> &str {
     if s.len() <= max_bytes { return s; }
@@ -380,7 +386,7 @@ pub async fn update_config(
 
             Json(serde_json::json!({"ok": true, "message": "Config saved — agent reloading"}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("gateway", e),
     }
 }
 
@@ -606,7 +612,7 @@ pub async fn update_channel(
             }
             Json(serde_json::json!({"ok": true, "message": format!("{channel_type} config saved")}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("gateway", e),
     }
 }
 
@@ -1623,11 +1629,14 @@ pub async fn zalo_qr_code(State(_state): State<Arc<AppState>>) -> Json<serde_jso
             ],
             "message": "Quét mã QR bằng Zalo trên điện thoại"
         })),
-        Err(e) => Json(serde_json::json!({
-            "ok": false,
-            "error": e.to_string(),
-            "fallback": "Vui lòng vào chat.zalo.me → F12 → Application → Cookies → Copy toàn bộ và paste vào ô Cookie bên dưới"
-        })),
+        Err(e) => {
+            tracing::error!("[zalo_qr] {e}");
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Không thể tạo mã QR Zalo",
+                "fallback": "Vui lòng vào chat.zalo.me → F12 → Application → Cookies → Copy toàn bộ và paste vào ô Cookie bên dưới"
+            }))
+        }
     }
 }
 
@@ -2377,10 +2386,13 @@ pub async fn agent_chat(
             "agent": name,
             "response": response,
         })),
-        Err(e) => Json(serde_json::json!({
-            "ok": false,
-            "error": e.to_string(),
-        })),
+        Err(e) => {
+            tracing::error!("[agent_chat:{name}] {e}");
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Agent processing failed",
+            }))
+        }
     }
 }
 
@@ -2404,11 +2416,14 @@ pub async fn agent_broadcast(
                 "ok": true,
                 "response": response,
             }),
-            Err(e) => serde_json::json!({
-                "agent": name,
-                "ok": false,
-                "error": e.to_string(),
-            }),
+            Err(e) => {
+                tracing::error!("[broadcast:{name}] {e}");
+                serde_json::json!({
+                    "agent": name,
+                    "ok": false,
+                    "error": "Agent processing failed",
+                })
+            }
         })
         .collect();
 
@@ -2669,7 +2684,7 @@ pub async fn brain_write_file(
     let content = body["content"].as_str().unwrap_or("");
     match ws.write_file(&filename, content) {
         Ok(()) => Json(serde_json::json!({"ok": true, "message": format!("Saved: {filename}")})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("gateway", e),
     }
 }
 
@@ -2687,7 +2702,7 @@ pub async fn brain_delete_file(
             Json(serde_json::json!({"ok": true, "message": format!("Deleted: {filename}")}))
         }
         Ok(false) => Json(serde_json::json!({"ok": false, "error": "File not found"})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("gateway", e),
     }
 }
 
@@ -3345,7 +3360,7 @@ pub async fn gallery_upload_md(
                 "path": md_path.display().to_string(),
             }))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("gateway", e),
     }
 }
 

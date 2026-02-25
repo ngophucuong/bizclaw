@@ -211,6 +211,15 @@ async fn platform_security_headers(
     response
 }
 
+// ── Error Sanitization (H2 FIX) ────────────────────────
+
+/// Return a sanitized error response — log the real error server-side,
+/// send a generic message to the client. Prevents information disclosure.
+fn internal_error(context: &str, e: impl std::fmt::Display) -> Json<serde_json::Value> {
+    tracing::error!("[{context}] {e}");
+    Json(serde_json::json!({"ok": false, "error": "An internal error occurred"}))
+}
+
 // ── Nginx Sync ─────────────────────────────────────
 
 
@@ -522,7 +531,7 @@ async fn create_tenant(
             sync_nginx_routing(&state);
             Json(serde_json::json!({"ok": true, "tenant": tenant}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -537,7 +546,7 @@ async fn get_tenant(
     }
     match db.get_tenant(&id) {
         Ok(t) => Json(serde_json::json!({"ok": true, "tenant": t})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -565,7 +574,7 @@ async fn delete_tenant(
             sync_nginx_routing(&state);
             Json(serde_json::json!({"ok": true}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -579,7 +588,7 @@ async fn start_tenant(
     }
     let tenant = match state.db.lock().unwrap().get_tenant(&id) {
         Ok(t) => t,
-        Err(e) => return Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => return internal_error("admin", e),
     };
 
     let mut mgr = state.manager.lock().unwrap();
@@ -610,7 +619,7 @@ async fn start_tenant(
                 .unwrap()
                 .update_tenant_status(&id, "error", None)
                 .ok();
-            Json(serde_json::json!({"ok": false, "error": e.to_string()}))
+            internal_error("start_tenant", e)
         }
     }
 }
@@ -650,7 +659,7 @@ async fn restart_tenant(
     }
     let tenant = match state.db.lock().unwrap().get_tenant(&id) {
         Ok(t) => t,
-        Err(e) => return Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => return internal_error("admin", e),
     };
 
     // IMPORTANT: separate lock scopes to avoid Mutex deadlock
@@ -671,7 +680,7 @@ async fn restart_tenant(
         Err(e) => {
             state.db.lock().unwrap()
                 .update_tenant_status(&id, "error", None).ok();
-            Json(serde_json::json!({"ok": false, "error": e.to_string()}))
+            internal_error("restart_tenant", e)
         }
     }
 }
@@ -696,7 +705,7 @@ async fn reset_pairing(
                 .ok();
             Json(serde_json::json!({"ok": true, "pairing_code": code}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -844,7 +853,7 @@ async fn validate_pairing(
             }
         }
         Ok(None) => Json(serde_json::json!({"ok": false, "error": "Invalid pairing code"})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -869,7 +878,7 @@ async fn list_channels(
     } // lock dropped here
     match state.db.lock().unwrap().list_channels(&id) {
         Ok(channels) => Json(serde_json::json!({"ok": true, "channels": channels})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -911,7 +920,7 @@ async fn upsert_channel(
                 .ok();
             Json(serde_json::json!({"ok": true, "channel": channel}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -940,7 +949,7 @@ async fn delete_channel(
                 .ok();
             Json(serde_json::json!({"ok": true}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -968,11 +977,14 @@ async fn zalo_get_qr(
             ],
             "message": "Quét mã QR bằng Zalo trên điện thoại"
         })),
-        Err(e) => Json(serde_json::json!({
-            "ok": false,
-            "error": e.to_string(),
-            "fallback": "Vui lòng vào chat.zalo.me → F12 → Application → Cookies → Copy toàn bộ và paste vào ô Cookie bên dưới"
-        })),
+        Err(e) => {
+            tracing::error!("[zalo_qr] {e}");
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Không thể tạo mã QR Zalo",
+                "fallback": "Vui lòng vào chat.zalo.me → F12 → Application → Cookies → Copy toàn bộ và paste vào ô Cookie bên dưới"
+            }))
+        }
     }
 }
 
@@ -996,12 +1008,15 @@ async fn ollama_health(State(_state): State<Arc<AdminState>>) -> Json<serde_json
             "ok": false, "url": url,
             "status": format!("unhealthy: {}", r.status())
         })),
-        Err(e) => Json(serde_json::json!({
-            "ok": false, "url": url,
-            "status": "not_running",
-            "error": e.to_string(),
-            "install_guide": "curl -fsSL https://ollama.ai/install.sh | sh"
-        })),
+        Err(e) => {
+            tracing::error!("[ollama_health] {e}");
+            Json(serde_json::json!({
+                "ok": false, "url": url,
+                "status": "not_running",
+                "error": "Ollama is not reachable",
+                "install_guide": "curl -fsSL https://ollama.ai/install.sh | sh"
+            }))
+        }
     }
 }
 
@@ -1072,11 +1087,14 @@ async fn ollama_pull_model(
             let text = r.text().await.unwrap_or_default();
             Json(serde_json::json!({"ok": false, "error": text}))
         }
-        Err(e) => Json(serde_json::json!({
-            "ok": false,
-            "error": e.to_string(),
-            "hint": "Ollama might not be installed. Run: curl -fsSL https://ollama.ai/install.sh | sh"
-        })),
+        Err(e) => {
+            tracing::error!("[ollama_pull] {e}");
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Ollama is not reachable",
+                "hint": "Ollama might not be installed. Run: curl -fsSL https://ollama.ai/install.sh | sh"
+            }))
+        }
     }
 }
 
@@ -1106,7 +1124,7 @@ async fn ollama_delete_model(
             let text = r.text().await.unwrap_or_default();
             Json(serde_json::json!({"ok": false, "error": text}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1136,7 +1154,7 @@ async fn list_tenant_configs(
             }
             Json(serde_json::json!({"ok": true, "configs": obj}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1206,7 +1224,7 @@ async fn list_tenant_agents(
     } // lock dropped here
     match state.db.lock().unwrap().list_agents(&id) {
         Ok(agents) => Json(serde_json::json!({"ok": true, "agents": agents})),
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1256,7 +1274,7 @@ async fn upsert_tenant_agent(
             ).ok();
             Json(serde_json::json!({"ok": true, "agent": agent}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1281,7 +1299,7 @@ async fn delete_tenant_agent(
             ).ok();
             Json(serde_json::json!({"ok": true}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1397,8 +1415,7 @@ async fn delete_user_handler(
             Json(serde_json::json!({"ok": true, "tenants_deleted": deleted_tenants.len()}))
         }
         Err(e) => {
-            tracing::error!("delete_user_handler: Error: {e}");
-            Json(serde_json::json!({"ok": false, "error": e.to_string()}))
+            internal_error("delete_user", e)
         }
     }
 }
@@ -1432,7 +1449,7 @@ async fn assign_tenant_handler(
                 .ok();
             Json(serde_json::json!({"ok": true}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1462,8 +1479,8 @@ async fn admin_reset_user_password(
     let new_pwd = req.new_password.clone();
     let hash = match tokio::task::spawn_blocking(move || crate::auth::hash_password(&new_pwd)).await {
         Ok(Ok(h)) => h,
-        Ok(Err(e)) => return Json(serde_json::json!({"ok": false, "error": format!("Hash error: {e}")})),
-        Err(e) => return Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Ok(Err(e)) => return internal_error("hash_password", e),
+        Err(e) => return internal_error("hash_task", e),
     };
 
     let db_res = state.db.lock().unwrap().update_user_password(&id, &hash);
@@ -1477,7 +1494,7 @@ async fn admin_reset_user_password(
                 .ok();
             Json(serde_json::json!({"ok": true}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1549,7 +1566,7 @@ async fn update_user_status_handler(
             
             Json(serde_json::json!({"ok": true}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
 
@@ -1597,6 +1614,6 @@ async fn update_user_role_handler(
                 .ok();
             Json(serde_json::json!({"ok": true}))
         }
-        Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+        Err(e) => internal_error("admin", e),
     }
 }
