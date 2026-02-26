@@ -648,18 +648,31 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
       <!-- Delegate Form -->
       <div class="card" style="margin-top:16px">
-        <h3>📋 <span data-i18n="orch.delegate_title">Giao việc (Delegate)</span></h3>
-        <div class="ch-fields">
-          <label data-i18n="orch.from_agent">Agent giao việc</label>
-          <select id="orch-from" style="width:100%"><option value="">— Chọn agent —</option></select>
-          <label data-i18n="orch.to_agent">Agent nhận việc</label>
-          <select id="orch-to" style="width:100%"><option value="">— Chọn agent —</option></select>
-          <label data-i18n="orch.task">Nội dung công việc</label>
-          <input id="orch-task" placeholder="Viết báo cáo doanh thu tháng này...">
-          <label>Mode</label>
-          <select id="orch-mode" style="width:100%"><option value="sync">Sync (chờ kết quả)</option><option value="async">Async (chạy nền)</option></select>
+        <h3 style="margin-bottom:14px">📋 <span data-i18n="orch.delegate_title">Giao việc (Delegate)</span></h3>
+        <!-- Row 1: From / To side by side -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+          <div>
+            <label style="font-size:11px;color:var(--text2);font-weight:500;display:block;margin-bottom:4px" data-i18n="orch.from_agent">Agent giao việc</label>
+            <select id="orch-from" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option value="">— Chọn agent —</option></select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2);font-weight:500;display:block;margin-bottom:4px" data-i18n="orch.to_agent">Agent nhận việc</label>
+            <select id="orch-to" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option value="">— Chọn agent —</option></select>
+          </div>
         </div>
-        <div style="margin-top:12px"><button class="btn btn-primary" onclick="orchDelegate()">🚀 Delegate</button></div>
+        <!-- Row 2: Task full width -->
+        <div style="margin-bottom:10px">
+          <label style="font-size:11px;color:var(--text2);font-weight:500;display:block;margin-bottom:4px" data-i18n="orch.task">Nội dung công việc</label>
+          <input id="orch-task" placeholder="Viết báo cáo doanh thu tháng này..." style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:var(--font)">
+        </div>
+        <!-- Row 3: Mode + Button inline -->
+        <div style="display:flex;gap:12px;align-items:flex-end">
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--text2);font-weight:500;display:block;margin-bottom:4px">Mode</label>
+            <select id="orch-mode" style="width:100%;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option value="sync">Sync (chờ kết quả)</option><option value="async">Async (chạy nền)</option></select>
+          </div>
+          <button class="btn btn-primary" onclick="orchDelegate()" style="padding:9px 24px;white-space:nowrap">🚀 Delegate</button>
+        </div>
         <div id="orch-delegate-result" style="margin-top:12px;display:none" class="card"></div>
       </div>
 
@@ -3783,9 +3796,9 @@ function toast(msg) {
 async function loadOrchestrationPage() {
   try {
     // Load agents into the delegate dropdowns
-    const res = await fetch('/api/v1/agents', { headers: authHeaders() });
-    if (res.ok) {
-      const data = await res.json();
+    const res = await authFetch(API + '/api/v1/agents');
+    const data = await res.json();
+    if (data.ok) {
       const agents = data.agents || [];
       const fromSel = document.getElementById('orch-from');
       const toSel = document.getElementById('orch-to');
@@ -3794,7 +3807,8 @@ async function loadOrchestrationPage() {
       agents.forEach(a => {
         const name = a.name || a.id || '';
         const role = a.role || '';
-        const opt = `<option value="${esc(name)}">${esc(name)} (${esc(role)})</option>`;
+        const icon = role === 'coder' ? '💻' : role === 'researcher' ? '🔬' : role === 'writer' ? '✍️' : role === 'analyst' ? '📊' : '🤖';
+        const opt = `<option value="${esc(name)}">${icon} ${esc(name)} (${esc(role)})</option>`;
         fromSel.innerHTML += opt;
         toSel.innerHTML += opt;
       });
@@ -3817,12 +3831,12 @@ async function orchDelegate() {
   resultDiv.style.display = '';
   resultDiv.innerHTML = '<div class="pulse" style="color:var(--accent)">⏳ Đang delegate...</div>';
   try {
-    const res = await fetch('/api/v1/orchestration/delegate', {
-      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    const res = await authFetch(API + '/api/v1/orchestration/delegate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to, task, mode })
     });
     const data = await res.json();
-    if (res.ok && data.ok) {
+    if (data.ok) {
       resultDiv.innerHTML = `<div style="color:var(--green)">✅ Delegation thành công</div>
         <pre style="font-size:12px;margin-top:8px;max-height:200px;overflow:auto;background:var(--bg2);padding:8px;border-radius:6px;color:var(--text)">${esc(JSON.stringify(data, null, 2))}</pre>`;
       document.getElementById('orch-task').value = '';
@@ -3838,7 +3852,7 @@ async function orchDelegate() {
 async function orchLoadDelegations() {
   const container = document.getElementById('orch-delegation-list');
   try {
-    const res = await fetch('/api/v1/orchestration/delegations?agent=*&limit=50', { headers: authHeaders() });
+    const res = await authFetch(API + '/api/v1/orchestration/delegations?agent=*&limit=50');
     const data = await res.json();
     const list = data.delegations || [];
     document.getElementById('orch-delegations').textContent = list.length;
@@ -3875,12 +3889,12 @@ async function orchCreateLink() {
   if (!permsInput) return;
   const permissions = permsInput.split(',').map(p => p.trim()).filter(Boolean);
   try {
-    const res = await fetch('/api/v1/orchestration/links', {
-      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    const res = await authFetch(API + '/api/v1/orchestration/links', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to, permissions })
     });
     const data = await res.json();
-    if (res.ok && data.ok) {
+    if (data.ok) {
       toast('✅ Permission link created');
       orchLoadLinks();
     } else {
@@ -3894,8 +3908,8 @@ async function orchCreateLink() {
 async function orchDeleteLink(id) {
   if (!confirm('Xóa permission link này?')) return;
   try {
-    const res = await fetch('/api/v1/orchestration/links/' + encodeURIComponent(id), {
-      method: 'DELETE', headers: authHeaders()
+    const res = await authFetch(API + '/api/v1/orchestration/links/' + encodeURIComponent(id), {
+      method: 'DELETE'
     });
     if (res.ok) {
       toast('✅ Link đã xóa');
@@ -3909,7 +3923,7 @@ async function orchDeleteLink(id) {
 async function orchLoadLinks() {
   const container = document.getElementById('orch-links-list');
   try {
-    const res = await fetch('/api/v1/orchestration/links', { headers: authHeaders() });
+    const res = await authFetch(API + '/api/v1/orchestration/links');
     const data = await res.json();
     const links = data.links || [];
     document.getElementById('orch-links').textContent = links.length;
@@ -3937,7 +3951,7 @@ async function orchLoadLinks() {
 async function orchLoadTraces() {
   const container = document.getElementById('orch-traces-list');
   try {
-    const res = await fetch('/api/v1/orchestration/traces?limit=50', { headers: authHeaders() });
+    const res = await authFetch(API + '/api/v1/orchestration/traces?limit=50');
     const data = await res.json();
     const traces = data.traces || [];
     document.getElementById('orch-traces').textContent = traces.length;
