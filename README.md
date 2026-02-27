@@ -61,7 +61,7 @@ cd bizclaw && cargo build --release
 | **🤖 51 Agent Templates** | 13 danh mục nghiệp vụ, system prompt chuyên sâu, cài 1 click |
 | **👥 Group Chat** | Tạo nhóm agent cộng tác — gửi 1 câu hỏi, tất cả agent trong nhóm phản hồi |
 | **🧠 3-Tier Memory** | Brain workspace (SOUL.md/MEMORY.md), Daily auto-compaction, FTS5 search |
-| **📚 Knowledge RAG** | Upload documents → vector search, relevance scoring |
+| **📚 Knowledge RAG** | Dual-mode: FTS5/BM25 (instant) + PageIndex MCP (reasoning-based, 98.7% accuracy) |
 | **⏰ Scheduler** | Tác vụ hẹn giờ, agent tự chạy background, **retry mechanism với exponential backoff** |
 | **💾 Persistence** | SQLite gateway.db (providers, agents, channels), agents.json backup, auto-restore |
 | **🧠 Brain Engine** | GGUF inference: mmap, quantization, Flash Attention, SIMD (ARM NEON, x86 SSE2/AVX2) |
@@ -195,6 +195,14 @@ BizClaw hỗ trợ kết nối **MCP Servers** — mở rộng tools không gi�
 
 ```toml
 # config.toml
+[[mcp_servers]]
+name = "pageindex"
+command = "npx"
+args = ["-y", "@pageindex/mcp"]
+# 📑 PageIndex — Vectorless, Reasoning-based RAG
+# Upload PDF → LLM suy luận qua tree structure → tìm context chính xác
+# 98.7% accuracy trên FinanceBench (vs vector RAG ~70%)
+
 [[mcp_servers]]
 name = "github"
 command = "npx"
