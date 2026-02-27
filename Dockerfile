@@ -1,19 +1,12 @@
-# ═══════════════════════════════════════════════════════════════
-# BizClaw AI Agent Platform — Multi-stage Docker Build
-# Self-hosted on Pi, VPS, or any Linux machine
-# ═══════════════════════════════════════════════════════════════
-
 # Stage 1: Build
-# FROM rust:1.82-bookworm AS builder
 FROM rust:1.88 AS builder
-
 WORKDIR /build
 
 # Copy workspace Cargo files first (for dependency caching)
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 COPY src/ src/
-COPY data/ data/
+COPY data/ data/   # ✅ quan trọng: include_str! cần file tồn tại khi compile
 
 # Build release binaries
 RUN cargo build --release --bin bizclaw --bin bizclaw-platform
@@ -25,26 +18,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libssl3 curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy binaries
 COPY --from=builder /build/target/release/bizclaw /usr/local/bin/bizclaw
 COPY --from=builder /build/target/release/bizclaw-platform /usr/local/bin/bizclaw-platform
 
-# Create data directory
 RUN mkdir -p /root/.bizclaw
 
-# Environment — GMT+7
 ENV BIZCLAW_CONFIG=/root/.bizclaw/config.toml
 ENV RUST_LOG=info
 ENV TZ=Asia/Ho_Chi_Minh
 
-# Expose ports: platform admin (3001) + tenant gateways (10001-10010)
 EXPOSE 3001 10001 10002 10003 10004 10005
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD sh -c 'curl -fsS http://localhost:${PORT}/health || exit 1'
+# ❌ Bỏ HEALTHCHECK trong Dockerfile để tránh hardcode port.
+# Railway sẽ dùng healthcheckPath=/health từ railway.toml.
 
-# Default: run the platform
-#ENTRYPOINT ["bizclaw-platform"]
-#CMD ["--port", "3001", "--bizclaw-bin", "/usr/local/bin/bizclaw"]
-CMD ["sh", "-c", "/usr/local/bin/bizclaw-platform --port ${PORT} --bizclaw-bin /usr/local/bin/bizclaw"]
+ENTRYPOINT ["/usr/local/bin/bizclaw-platform"]
+CMD ["--port", "3001", "--bizclaw-bin", "/usr/local/bin/bizclaw"]
