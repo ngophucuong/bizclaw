@@ -4,6 +4,4 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "/usr/local/bin/bizclaw-platform --port 3001 --bizclaw-bin /usr/local/bin/bizclaw"
-healthcheckPath = "/"
-healthcheckTimeout = 180
-restartPolicyType = "ALWAYS"
+
