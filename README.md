@@ -263,6 +263,29 @@ ollama pull qwen3         # ~4.7GB
 | **Last Updated** | 2026-02-26 (03070b6) |
 
 ---
+## Deploy BizClaw lên Railway (Dockerfile)
+
+### 1) Deploy
+- New Project → Deploy from GitHub repo
+- Railway sẽ dùng Dockerfile ở root.
+
+### 2) Public domain
+Service → Settings → Public Networking → Generate Domain
+- Port: 3001
+
+### 3) Volume (bắt buộc để giữ DB)
+Service → Volumes → Add Volume
+- Mount path: /root/.bizclaw
+
+### 4) Variables (khuyến nghị)
+Service → Variables
+- JWT_SECRET=<chuỗi dài ngẫu nhiên>
+
+### 5) Login
+Default:
+- Email: admin@bizclaw.vn
+- Password: BizClaw@2026
+---
 
 ## 🇬🇧 English
 
