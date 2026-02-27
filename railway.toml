@@ -1,0 +1,14 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Chạy cố định port 3001 để Public Networking trỏ Port 3001
+startCommand = "/usr/local/bin/bizclaw-platform --port 3001 --bizclaw-bin /usr/local/bin/bizclaw"
+
+# Railway healthcheck (khuyến nghị dùng Railway healthcheck thay vì HEALTHCHECK trong Dockerfile)
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+
+# Nếu muốn luôn restart khi crash:
+restartPolicyType = "ALWAYS"
