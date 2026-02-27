@@ -6,7 +6,7 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 COPY src/ src/
-COPY data/ data/   # ✅ quan trọng: include_str! cần file tồn tại khi compile
+COPY data/ data/  
 
 # Build release binaries
 RUN cargo build --release --bin bizclaw --bin bizclaw-platform
@@ -29,8 +29,6 @@ ENV TZ=Asia/Ho_Chi_Minh
 
 EXPOSE 3001 10001 10002 10003 10004 10005
 
-# ❌ Bỏ HEALTHCHECK trong Dockerfile để tránh hardcode port.
-# Railway sẽ dùng healthcheckPath=/health từ railway.toml.
 
 ENTRYPOINT ["/usr/local/bin/bizclaw-platform"]
 CMD ["--port", "3001", "--bizclaw-bin", "/usr/local/bin/bizclaw"]
