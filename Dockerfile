@@ -28,7 +28,8 @@ ENV RUST_LOG=info
 ENV TZ=Asia/Ho_Chi_Minh
 
 EXPOSE 3001 10001 10002 10003 10004 10005
-
+HEALTHCHECK --interval=30s --timeout=5s --retries=5 \
+  CMD curl -f http://localhost:3001/ || exit 1
 
 ENTRYPOINT ["/usr/local/bin/bizclaw-platform"]
 CMD ["--port", "3001", "--bizclaw-bin", "/usr/local/bin/bizclaw"]
