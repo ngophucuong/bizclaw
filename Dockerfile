@@ -42,8 +42,9 @@ EXPOSE 3001 10001 10002 10003 10004 10005
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:3001/health || exit 1
+    CMD sh -c 'curl -fsS http://localhost:${PORT}/health || exit 1'
 
 # Default: run the platform
-ENTRYPOINT ["bizclaw-platform"]
-CMD ["--port", "3001", "--bizclaw-bin", "/usr/local/bin/bizclaw"]
+#ENTRYPOINT ["bizclaw-platform"]
+#CMD ["--port", "3001", "--bizclaw-bin", "/usr/local/bin/bizclaw"]
+CMD ["sh", "-c", "/usr/local/bin/bizclaw-platform --port ${PORT} --bizclaw-bin /usr/local/bin/bizclaw"]
